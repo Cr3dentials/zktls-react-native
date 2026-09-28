@@ -84,3 +84,6 @@ android/generated
 
 # React Native Nitro Modules
 nitrogen/
+
+# Locally built SDK binary (consumed from mavenLocal; see android/build.gradle)
+android/libs/
