@@ -38,15 +38,15 @@ fun readDisclosure(map: ReadableMap): LoginDisclosure = LoginDisclosure(
 
 // The native Phase, lowercased to the strings the JS Phase union uses.
 fun phaseToString(phase: Phase): String = when (phase) {
-  Phase.loggingIn -> "loggingIn"
-  Phase.allocating -> "allocating"
-  Phase.capturing -> "capturing"
-  Phase.captured -> "captured"
-  Phase.proving -> "proving"
-  Phase.proved -> "proved"
-  Phase.claiming -> "claiming"
-  Phase.done -> "done"
-  Phase.failed -> "failed"
+  Phase.LOGGING_IN -> "loggingIn"
+  Phase.ALLOCATING -> "allocating"
+  Phase.CAPTURING -> "capturing"
+  Phase.CAPTURED -> "captured"
+  Phase.PROVING -> "proving"
+  Phase.PROVED -> "proved"
+  Phase.CLAIMING -> "claiming"
+  Phase.DONE -> "done"
+  Phase.FAILED -> "failed"
 }
 
 // The u64 fields cross as strings: JS numbers lose integer precision above

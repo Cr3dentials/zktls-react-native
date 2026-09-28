@@ -47,7 +47,7 @@ class ZktlsReactNativeModule(private val reactContext: ReactApplicationContext) 
     // The presenter shows the disclosure, then the login page, on the UI thread.
     // Falls back to the SDK's standard disclosure when none is given.
     val presenter = if (disclosure != null) {
-      WebViewLoginPresenter(activity, disclosure = readDisclosure(disclosure))
+      WebViewLoginPresenter(activity) { readDisclosure(disclosure) }
     } else {
       WebViewLoginPresenter(activity)
     }
