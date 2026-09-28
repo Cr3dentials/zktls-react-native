@@ -52,4 +52,14 @@ android {
 
 dependencies {
   implementation "com.facebook.react:react-android"
+
+  // The native zkTLS SDK. Local-binary-first: build the AAR from the zktls-sdk
+  // repo (android/build-rust.sh, then :sdk:assembleRelease) and drop it at
+  // android/libs/zktls-sdk.aar. Switch to the published coordinate once it
+  // exists: implementation("io.github.cr3dentials:zktls-sdk:1.0.0")
+  implementation fileTree(dir: "libs", include: ["*.aar"])
+  // A file/flatDir AAR does not carry its own transitive deps, so declare the
+  // ones the SDK brings (see the SDK's integration-android.md).
+  implementation "net.java.dev.jna:jna:5.14.0@aar"
+  implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0"
 }
