@@ -52,7 +52,9 @@ export default function App() {
       append('Bridge round-trips OK');
     } catch (err) {
       const e = err as { code?: string; message?: string };
-      append(`create failed - ${e.code ?? 'unknown'}: ${e.message ?? String(err)}`);
+      append(
+        `create failed - ${e.code ?? 'unknown'}: ${e.message ?? String(err)}`
+      );
     }
   };
 
