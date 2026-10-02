@@ -44,6 +44,6 @@ try {
 A failed verb rejects with a `code` (an `SdkErrorCode`); `Transport` and `Policy` carry text. The SDK
 never retries, and neither should the app.
 
-The Android bridge is verified against the real SDK, and its round-trips run on device; the iOS bridge
-is written but not yet built on a Mac. `example/` is a runnable harness whose "Test bridge" button
-exercises the round-trips that need no live backend.
+Both bridges are verified against the real SDK: the round-trips run on an Android device and an iOS
+simulator. `example/` is a runnable harness whose "Test bridge" button exercises the round-trips that
+need no live backend.
