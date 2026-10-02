@@ -22,21 +22,44 @@
   return self;
 }
 
-- (void)create:(NSDictionary *)config
+// Codegen types the object params as C++ structs wrapping the JS object (see the
+// generated ZktlsReactNativeSpec.h). Flatten them back to the NSDictionary the Swift
+// bridge reads.
+- (void)create:(JS::NativeZktlsReactNative::SessionConfig &)config
        resolve:(RCTPromiseResolveBlock)resolve
         reject:(RCTPromiseRejectBlock)reject
 {
-  [_bridge create:config completion:^(NSString *sessionId, NSError *error) {
+  NSDictionary *dict = @{
+    @"baseUrl": config.baseUrl() ?: @"",
+    @"appCredential": config.appCredential() ?: @"",
+    @"userIdHash": config.userIdHash() ?: @"",
+    @"profileId": config.profileId() ?: @"",
+    @"policyId": config.policyId() ?: @"",
+    @"idempotencyKey": config.idempotencyKey() ?: @"",
+    @"clientRegion": config.clientRegion() ?: @"",
+    @"networkKey": config.networkKey() ?: @"",
+    @"trustBundleJson": config.trustBundleJson() ?: @"",
+    @"trustOperatorKey": config.trustOperatorKey() ?: @"",
+    @"policyBundleJson": config.policyBundleJson() ?: @"",
+    @"policyBundleDigest": config.policyBundleDigest() ?: @"",
+  };
+  [_bridge create:dict completion:^(NSString *sessionId, NSError *error) {
     if (error) { [self reject:reject with:error]; } else { resolve(sessionId); }
   }];
 }
 
 - (void)login:(NSString *)sessionId
-   disclosure:(NSDictionary *)disclosure
+   disclosure:(JS::NativeZktlsReactNative::Disclosure &)disclosure
       resolve:(RCTPromiseResolveBlock)resolve
        reject:(RCTPromiseRejectBlock)reject
 {
-  [_bridge login:sessionId disclosure:disclosure completion:^(NSError *error) {
+  // All four fields are optional; include only the ones JS actually sent.
+  NSMutableDictionary *d = [NSMutableDictionary dictionary];
+  if (disclosure.title()) d[@"title"] = disclosure.title();
+  if (disclosure.message()) d[@"message"] = disclosure.message();
+  if (disclosure.accept()) d[@"accept"] = disclosure.accept();
+  if (disclosure.decline()) d[@"decline"] = disclosure.decline();
+  [_bridge login:sessionId disclosure:d completion:^(NSError *error) {
     if (error) { [self reject:reject with:error]; } else { resolve(nil); }
   }];
 }

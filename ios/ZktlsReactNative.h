@@ -1,5 +1,5 @@
 #import <ZktlsReactNativeSpec/ZktlsReactNativeSpec.h>
 
-@interface ZktlsReactNative : NSObject <NativeZktlsReactNativeSpec>
+@interface ZktlsReactNative : NativeZktlsReactNativeSpecBase <NativeZktlsReactNativeSpec>
 
 @end

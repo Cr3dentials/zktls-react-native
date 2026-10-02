@@ -17,6 +17,11 @@ end
 target 'ZktlsReactNativeExample' do
   config = use_native_modules!
 
+  # Local-binary-first: the native zkTLS SDK from a local build-ios.sh run
+  # (swift/ holds the Swift API + ZktlsSDKFFI.xcframework). Swap for the published
+  # pod once zktls-sdk releases one. Satisfies ZktlsReactNative's ZktlsSDK dependency.
+  pod 'ZktlsSDK', :path => '../../../zktls-sdk/swift'
+
   use_react_native!(
     :path => config[:reactNativePath],
     # An absolute path to your application root.
