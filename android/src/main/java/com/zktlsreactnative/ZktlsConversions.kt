@@ -22,6 +22,7 @@ fun readSessionConfig(map: ReadableMap): SessionConfig = SessionConfig(
   clientRegion = map.getString("clientRegion") ?: "",
   networkKey = map.getString("networkKey") ?: "",
   trustBundleJson = map.getString("trustBundleJson") ?: "",
+  trustBundleUrl = if (map.hasKey("trustBundleUrl")) map.getString("trustBundleUrl") ?: "" else "",
   trustOperatorKey = map.getString("trustOperatorKey") ?: "",
   policyBundleJson = map.getString("policyBundleJson") ?: "",
   policyBundleDigest = map.getString("policyBundleDigest") ?: "",

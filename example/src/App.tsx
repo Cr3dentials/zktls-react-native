@@ -16,6 +16,7 @@ const DEMO_CONFIG: SessionConfig = {
   clientRegion: '',
   networkKey: 'default',
   trustBundleJson: '',
+  trustBundleUrl: '',
   trustOperatorKey: '',
   policyBundleJson: '',
   policyBundleDigest: '',

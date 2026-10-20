@@ -18,6 +18,8 @@ export interface SessionConfig {
   clientRegion: string;
   networkKey: string;
   trustBundleJson: string;
+  // Optional: where the SDK refetches the trust bundle once when an enclave's key is not listed yet.
+  trustBundleUrl?: string;
   trustOperatorKey: string;
   policyBundleJson: string;
   policyBundleDigest: string;
