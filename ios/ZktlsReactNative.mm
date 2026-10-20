@@ -39,6 +39,7 @@
     @"clientRegion": config.clientRegion() ?: @"",
     @"networkKey": config.networkKey() ?: @"",
     @"trustBundleJson": config.trustBundleJson() ?: @"",
+    @"trustBundleUrl": config.trustBundleUrl() ?: @"",
     @"trustOperatorKey": config.trustOperatorKey() ?: @"",
     @"policyBundleJson": config.policyBundleJson() ?: @"",
     @"policyBundleDigest": config.policyBundleDigest() ?: @"",

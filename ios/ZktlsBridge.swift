@@ -155,6 +155,7 @@ import ZktlsSDK
       clientRegion: s("clientRegion"),
       networkKey: s("networkKey"),
       trustBundleJson: s("trustBundleJson"),
+      trustBundleUrl: s("trustBundleUrl"),
       trustOperatorKey: s("trustOperatorKey"),
       policyBundleJson: s("policyBundleJson"),
       policyBundleDigest: s("policyBundleDigest")
