@@ -12,7 +12,7 @@ minSdk 24, iOS 14+. The Android app currently builds with JDK 17; iOS needs Xcod
 ## The native SDK
 
 The bridge links the compiled SDK, not its source. A released app resolves it from the SDK's published
-artifacts: `io.github.cr3dentials:zktls-sdk:1.0.0` from Maven for Android, and the `ZktlsSDK` Swift package
+artifacts: `xyz.cr3dentials:zktls-sdk:1.0.0` from Maven for Android, and the `ZktlsSDK` Swift package
 or pod from [zktls-sdk-releases](https://github.com/Cr3dentials/zktls-sdk-releases) for iOS. Nothing in
 the bridge changes when that release lands.
 
