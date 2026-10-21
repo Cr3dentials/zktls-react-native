@@ -243,7 +243,12 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, justifyContent: 'center' },
+  container: {
+    flex: 1,
+    padding: 24,
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
   status: { fontSize: 18, marginBottom: 12, textAlign: 'center' },
   log: { marginTop: 16, maxHeight: 240 },
   picker: {
