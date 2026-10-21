@@ -2,6 +2,7 @@ package com.zktlsreactnative
 
 import ai.zktls.sdk.LoginDisclosure
 import ai.zktls.sdk.SdkException
+import ai.zktls.sdk.TreeWebViewHost
 import ai.zktls.sdk.WebViewLoginPresenter
 import ai.zktls.sdk.ZktlsClient
 import com.facebook.react.bridge.Arguments
@@ -37,6 +38,36 @@ class ZktlsReactNativeModule(private val reactContext: ReactApplicationContext) 
       promise.resolve(sessionId)
     } catch (e: Throwable) {
       rejectSdk(promise, e)
+    }
+  }
+
+  // A client for platform packs. It shares the session registry, so cancel and
+  // dispose work on it as on any session.
+  override fun createTree(promise: Promise) {
+    try {
+      val client = ZktlsClient()
+      val sessionId = UUID.randomUUID().toString()
+      client.onProgress { phase, percent -> emitProgress(sessionId, phase, percent) }
+      sessions[sessionId] = client
+      promise.resolve(sessionId)
+    } catch (e: Throwable) {
+      rejectSdk(promise, e)
+    }
+  }
+
+  override fun runTree(sessionId: String, config: ReadableMap, disclosure: ReadableMap, promise: Promise) {
+    val client = sessions[sessionId] ?: return promise.reject("Internal", "unknown session")
+    val activity = reactContext.currentActivity
+      ?: return promise.reject("Internal", "no current activity for the tree WebView")
+    val treeConfig = readTreeRunConfig(config)
+    val treeDisclosure = readTreeDisclosure(disclosure)
+    scope.launch {
+      try {
+        val host = TreeWebViewHost(activity, treeDisclosure)
+        promise.resolve(writeTreeSummary(client.runTree(treeConfig, host)))
+      } catch (e: Throwable) {
+        rejectSdk(promise, e)
+      }
     }
   }
 
