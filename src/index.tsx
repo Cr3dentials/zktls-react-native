@@ -13,6 +13,9 @@ export type { SessionConfig, Disclosure, Claim, TypedOutput, ProofReport };
 // narrowed to this union here.
 export type Phase =
   | 'loggingIn'
+  | 'collecting'
+  | 'attesting'
+  | 'detached'
   | 'allocating'
   | 'capturing'
   | 'captured'

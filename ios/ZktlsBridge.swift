@@ -175,6 +175,9 @@ import ZktlsSDK
   private static func phaseToString(_ phase: Phase) -> String {
     switch phase {
     case .loggingIn: return "loggingIn"
+    case .collecting: return "collecting"
+    case .attesting: return "attesting"
+    case .detached: return "detached"
     case .allocating: return "allocating"
     case .capturing: return "capturing"
     case .captured: return "captured"

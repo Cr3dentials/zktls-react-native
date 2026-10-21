@@ -40,6 +40,9 @@ fun readDisclosure(map: ReadableMap): LoginDisclosure = LoginDisclosure(
 // The native Phase, lowercased to the strings the JS Phase union uses.
 fun phaseToString(phase: Phase): String = when (phase) {
   Phase.LOGGING_IN -> "loggingIn"
+  Phase.COLLECTING -> "collecting"
+  Phase.ATTESTING -> "attesting"
+  Phase.DETACHED -> "detached"
   Phase.ALLOCATING -> "allocating"
   Phase.CAPTURING -> "capturing"
   Phase.CAPTURED -> "captured"
