@@ -1,6 +1,12 @@
 import { useRef, useState } from 'react';
-import { Text, View, StyleSheet, Button, ScrollView } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import {
+  Text,
+  View,
+  StyleSheet,
+  Button,
+  ScrollView,
+  Pressable,
+} from 'react-native';
 import {
   ZktlsClient,
   type SessionConfig,
@@ -98,6 +104,7 @@ export default function App() {
   const [log, setLog] = useState<string[]>([]);
   const [platform, setPlatform] = useState(labSettings.platforms[0] ?? '');
   const [running, setRunning] = useState(false);
+  const [picking, setPicking] = useState(false);
   const tree = useRef<ZktlsClient | null>(null);
 
   const append = (line: string) => setLog((prev) => [...prev, line]);
@@ -190,16 +197,32 @@ export default function App() {
     <View style={styles.container}>
       <Text style={styles.status}>zkTLS bridge test</Text>
       <Button title="Test bridge" onPress={testBridge} disabled={running} />
-      <Picker
-        selectedValue={platform}
-        onValueChange={(id) => setPlatform(id)}
-        enabled={!running}
+      {/* A plain dropdown: core RN has none, and the community picker does not
+          link against RN 0.86's prebuilt iOS core. */}
+      <Pressable
+        onPress={() => setPicking(!picking)}
+        disabled={running}
         style={styles.picker}
       >
-        {labSettings.platforms.map((id) => (
-          <Picker.Item key={id} label={id} value={id} />
-        ))}
-      </Picker>
+        <Text>{platform || 'no platforms in labSettings'}</Text>
+        <Text>{picking ? '\u25B4' : '\u25BE'}</Text>
+      </Pressable>
+      {picking && (
+        <ScrollView style={styles.options}>
+          {labSettings.platforms.map((id) => (
+            <Pressable
+              key={id}
+              onPress={() => {
+                setPlatform(id);
+                setPicking(false);
+              }}
+              style={styles.option}
+            >
+              <Text style={id === platform && styles.selected}>{id}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      )}
       <Button
         title="Run a platform pack"
         onPress={runPack}
@@ -223,5 +246,15 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 24, justifyContent: 'center' },
   status: { fontSize: 18, marginBottom: 12, textAlign: 'center' },
   log: { marginTop: 16, maxHeight: 240 },
-  picker: { marginVertical: 12 },
+  picker: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderColor: '#888',
+    paddingVertical: 10,
+    marginVertical: 12,
+  },
+  options: { maxHeight: 240, marginBottom: 12 },
+  option: { paddingVertical: 10 },
+  selected: { fontWeight: 'bold' },
 });
