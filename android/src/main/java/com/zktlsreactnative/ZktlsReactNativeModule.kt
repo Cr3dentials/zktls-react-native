@@ -1,9 +1,12 @@
 package com.zktlsreactnative
 
 import ai.zktls.sdk.LoginDisclosure
+import ai.zktls.sdk.Phase
 import ai.zktls.sdk.SdkException
 import ai.zktls.sdk.TreeWebViewHost
 import ai.zktls.sdk.WebViewLoginPresenter
+import ai.zktls.sdk.ZkTlsLifecycle
+import ai.zktls.sdk.ZkTlsSessionService
 import ai.zktls.sdk.ZktlsClient
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
@@ -11,6 +14,7 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReadableMap
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -24,6 +28,13 @@ class ZktlsReactNativeModule(private val reactContext: ReactApplicationContext) 
   NativeZktlsReactNativeSpec(reactContext) {
 
   private val sessions = ConcurrentHashMap<String, ZktlsClient>()
+  // One lifecycle per session, on the client's own handle, as the SDK's sample
+  // wires it: it follows network changes and, with the foreground service, keeps
+  // a session alive when the user leaves the app.
+  private val lifecycles = ConcurrentHashMap<String, ZkTlsLifecycle>()
+  // ZkTlsSessionService has a single slot: the session that started it last owns
+  // it, so an earlier session ending does not stop a later one's service.
+  private val serviceOwner = AtomicReference<String?>(null)
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
   override fun getName(): String = NAME
@@ -34,6 +45,7 @@ class ZktlsReactNativeModule(private val reactContext: ReactApplicationContext) 
       val sessionId = UUID.randomUUID().toString()
       // Registered before the id is handed back so no early phase is missed.
       client.onProgress { phase, percent -> emitProgress(sessionId, phase, percent) }
+      lifecycles[sessionId] = ZkTlsLifecycle(reactContext, client.lifecycleHandle)
       sessions[sessionId] = client
       promise.resolve(sessionId)
     } catch (e: Throwable) {
@@ -47,7 +59,13 @@ class ZktlsReactNativeModule(private val reactContext: ReactApplicationContext) 
     try {
       val client = ZktlsClient()
       val sessionId = UUID.randomUUID().toString()
-      client.onProgress { phase, percent -> emitProgress(sessionId, phase, percent) }
+      client.onProgress { phase, percent ->
+        // A pack that attests uploads to the attester once the page closes; the
+        // user may leave the app by then.
+        if (phase == Phase.ATTESTING) scope.launch { hold(sessionId) }
+        emitProgress(sessionId, phase, percent)
+      }
+      lifecycles[sessionId] = ZkTlsLifecycle(reactContext, client.lifecycleHandle)
       sessions[sessionId] = client
       promise.resolve(sessionId)
     } catch (e: Throwable) {
@@ -67,6 +85,8 @@ class ZktlsReactNativeModule(private val reactContext: ReactApplicationContext) 
         promise.resolve(writeTreeSummary(client.runTree(treeConfig, host)))
       } catch (e: Throwable) {
         rejectSdk(promise, e)
+      } finally {
+        release(sessionId)
       }
     }
   }
@@ -85,6 +105,9 @@ class ZktlsReactNativeModule(private val reactContext: ReactApplicationContext) 
     scope.launch {
       try {
         client.login(presenter)
+        // Only now, since the login page is the user's to take time over. Capture
+        // and proof then survive the user leaving the app or changing network.
+        hold(sessionId)
         promise.resolve(null)
       } catch (e: Throwable) {
         rejectSdk(promise, e)
@@ -99,6 +122,7 @@ class ZktlsReactNativeModule(private val reactContext: ReactApplicationContext) 
         client.capture()
         promise.resolve(null)
       } catch (e: Throwable) {
+        release(sessionId)
         rejectSdk(promise, e)
       }
     }
@@ -110,6 +134,7 @@ class ZktlsReactNativeModule(private val reactContext: ReactApplicationContext) 
       try {
         promise.resolve(writeProofReport(client.prove()))
       } catch (e: Throwable) {
+        release(sessionId)
         rejectSdk(promise, e)
       }
     }
@@ -122,6 +147,8 @@ class ZktlsReactNativeModule(private val reactContext: ReactApplicationContext) 
         promise.resolve(writeClaim(client.claim()))
       } catch (e: Throwable) {
         rejectSdk(promise, e)
+      } finally {
+        release(sessionId)
       }
     }
   }
@@ -135,8 +162,31 @@ class ZktlsReactNativeModule(private val reactContext: ReactApplicationContext) 
   // Drops the client so its native handles are released. Not a native verb; the
   // bridge needs it so clients are not kept forever.
   override fun dispose(sessionId: String, promise: Promise) {
+    release(sessionId)
+    lifecycles.remove(sessionId)
     sessions.remove(sessionId)
     promise.resolve(null)
+  }
+
+  // Starts following the network and the foreground service for a session. On the
+  // main thread. From API 31 a background start throws: the session then goes on
+  // without the service.
+  private fun hold(sessionId: String) {
+    val client = sessions[sessionId] ?: return
+    val lifecycle = lifecycles[sessionId] ?: return
+    lifecycle.begin()
+    try {
+      ZkTlsSessionService.start(reactContext, lifecycle) { client.cancel() }
+      serviceOwner.set(sessionId)
+    } catch (e: IllegalStateException) {
+      // ForegroundServiceStartNotAllowedException: the app is in the background.
+    }
+  }
+
+  // Ends what hold started. Idempotent, so every exit may call it.
+  private fun release(sessionId: String) {
+    lifecycles[sessionId]?.end()
+    if (serviceOwner.compareAndSet(sessionId, null)) ZkTlsSessionService.stop(reactContext)
   }
 
   // Builds the progress payload and hands it to the codegen emitter generated

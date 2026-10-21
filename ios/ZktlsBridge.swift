@@ -12,6 +12,9 @@ import ZktlsSDK
 // .mm can resolve or reject a promise with them.
 @objc public class ZktlsBridge: NSObject {
   private var sessions: [String: ZktlsClient] = [:]
+  // One lifecycle per session, on the client's own handle, as the SDK's sample
+  // wires it: it holds background time and follows network changes.
+  private var lifecycles: [String: ZkTlsLifecycle] = [:]
   private let lock = NSLock()
 
   // Set by the .mm to receive progress. Args: sessionId, phase string, percent.
@@ -28,12 +31,12 @@ import ZktlsSDK
   ) {
     let client = ZktlsClient(config: ZktlsBridge.readSessionConfig(config))
     let sessionId = UUID().uuidString
-    Task {
+    Task { @MainActor in
       // Registered before the id is handed back so no early phase is missed.
       await client.onProgress { [weak self] phase, percent in
         self?.onProgress?(sessionId, ZktlsBridge.phaseToString(phase), Int(percent))
       }
-      lock.lock(); sessions[sessionId] = client; lock.unlock()
+      register(sessionId, client)
       completion(sessionId, nil)
     }
   }
@@ -43,11 +46,14 @@ import ZktlsSDK
   @objc public func createTree(completion: @escaping (String?, NSError?) -> Void) {
     let client = ZktlsClient()
     let sessionId = UUID().uuidString
-    Task {
+    Task { @MainActor in
       await client.onProgress { [weak self] phase, percent in
+        // A pack that attests uploads to the attester: hold background time until
+        // runTree returns.
+        if phase == .attesting { self?.hold(sessionId) }
         self?.onProgress?(sessionId, ZktlsBridge.phaseToString(phase), Int(percent))
       }
-      lock.lock(); sessions[sessionId] = client; lock.unlock()
+      register(sessionId, client)
       completion(sessionId, nil)
     }
   }
@@ -68,6 +74,7 @@ import ZktlsSDK
         return completion(nil, ZktlsBridge.internalError("no view controller for the tree WebView"))
       }
       let host = TreeWebViewHost(presentingFrom: vc, disclosure: treeDisclosure)
+      defer { release(sessionId) }
       do {
         let summary = try await client.runTree(config: treeConfig, host: host)
         completion(ZktlsBridge.writeTreeSummary(summary), nil)
@@ -91,6 +98,9 @@ import ZktlsSDK
       }
       do {
         _ = try await client.login(host: presenter)
+        // Only now, since the login page is the user's to take time over. Capture
+        // and proof then survive the user leaving the app or changing network.
+        hold(sessionId)
         completion(nil)
       } catch {
         completion(ZktlsBridge.mapError(error))
@@ -107,6 +117,7 @@ import ZktlsSDK
         _ = try await client.capture()
         completion(nil)
       } catch {
+        release(sessionId)
         completion(ZktlsBridge.mapError(error))
       }
     }
@@ -124,6 +135,7 @@ import ZktlsSDK
         let report = try await client.prove()
         completion(ZktlsBridge.writeProofReport(report), nil)
       } catch {
+        release(sessionId)
         completion(nil, ZktlsBridge.mapError(error))
       }
     }
@@ -137,6 +149,7 @@ import ZktlsSDK
       return completion(nil, ZktlsBridge.internalError("unknown session"))
     }
     Task {
+      defer { release(sessionId) }
       do {
         let claim = try await client.claim()
         completion(ZktlsBridge.writeClaim(claim), nil)
@@ -154,8 +167,36 @@ import ZktlsSDK
 
   // Drops the client so its native handles are released.
   @objc public func dispose(_ sessionId: String, completion: @escaping (NSError?) -> Void) {
-    lock.lock(); sessions.removeValue(forKey: sessionId); lock.unlock()
+    release(sessionId)
+    lock.lock()
+    sessions.removeValue(forKey: sessionId)
+    lifecycles.removeValue(forKey: sessionId)
+    lock.unlock()
     completion(nil)
+  }
+
+  // MARK: - Session lifecycle
+
+  // UIApplication is main-actor state, so the lifecycle is made there.
+  @MainActor
+  private func register(_ sessionId: String, _ client: ZktlsClient) {
+    let lifecycle = ZkTlsLifecycle(host: UIApplication.shared, handle: client.lifecycleHandle)
+    lifecycle.onExpiry = { client.cancel() }  // iOS ended our background time
+    lock.lock()
+    sessions[sessionId] = client
+    lifecycles[sessionId] = lifecycle
+    lock.unlock()
+  }
+
+  // Idempotent, like the lifecycle's own begin and end.
+  private func hold(_ sessionId: String) {
+    lock.lock(); let lifecycle = lifecycles[sessionId]; lock.unlock()
+    lifecycle?.begin()
+  }
+
+  private func release(_ sessionId: String) {
+    lock.lock(); let lifecycle = lifecycles[sessionId]; lock.unlock()
+    lifecycle?.end()
   }
 
   // MARK: - Login presenter
