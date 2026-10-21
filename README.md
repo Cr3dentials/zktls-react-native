@@ -50,4 +50,21 @@ never retries, and neither should the app.
 
 Both bridges are verified against the real SDK: the round-trips run on an Android device and an iOS
 simulator. `example/` is a runnable harness whose "Test bridge" button exercises the round-trips that
-need no live backend.
+need no live backend, and whose "Run a platform pack" button runs a pack against a lab configured in
+`example/src/labSettings.ts`.
+
+## Platform packs
+
+`ZktlsClient.createTree()` makes a client for platform packs, and `runTree(config, disclosure)` runs one:
+the SDK shows the disclosure, opens the platform's sign-in page in its WebView and collects in the page.
+The data reaches your backend at the run's `resultUrl`, posted by the SDK or, for a pack that attests, by
+the attester; the app gets a `TreeSummary` with each source's counts only.
+
+```ts
+const client = await ZktlsClient.createTree();
+try {
+  const summary = await client.runTree(config, disclosure); // config: a TreeRunConfig
+} finally {
+  await client.dispose();
+}
+```

@@ -61,6 +61,57 @@ export interface ProofReport {
   receivedBytes: string; // u64
 }
 
+// One per tree run. All strings; mirrors the native TreeRunConfig field for field.
+export interface TreeRunConfig {
+  baseUrl: string;
+  appCredential: string;
+  userIdHash: string;
+  idempotencyKey: string;
+  clientRegion: string;
+  networkKey: string;
+  platformId: string;
+  trustBundleJson: string;
+  trustBundleUrl?: string;
+  trustOperatorKey: string;
+  policyBundleJson: string;
+  policyBundleDigest: string;
+  relyingPartyNonceHex: string;
+  resultUrl: string;
+  resultToken: string;
+  paramsJson: string;
+}
+
+// The consent screen shown before the platform's pages open. All required.
+export interface TreeDisclosure {
+  title: string;
+  message: string;
+  accept: string;
+  decline: string;
+}
+
+export interface TreeSource {
+  storeAs: string;
+  evidence: string; // 'observed' | 'attested'
+  rows: string; // u64
+  pages: number; // u32
+  bytes: string; // u64
+  complete: boolean;
+}
+
+export interface TreeSummary {
+  succeeded: boolean;
+  error: string;
+  sources: TreeSource[];
+  claim?: Claim | null;
+  apiCalls: number; // u32
+  durationMs: string; // u64
+  delivered: boolean;
+  deliveryError: string;
+  resultBytes: string; // u64
+  isolation: string;
+  handedOff: boolean;
+}
+
 // phase is one of the Phase strings (see index.tsx); percent is 0..100.
 export interface ProgressEvent {
   sessionId: string;
@@ -80,6 +131,16 @@ export interface Spec extends TurboModule {
   capture(sessionId: string): Promise<void>;
   prove(sessionId: string): Promise<ProofReport>;
   claim(sessionId: string): Promise<Claim>;
+
+  // Builds a native ZktlsClient() for tree runs and returns its session id.
+  createTree(): Promise<string>;
+
+  // Shows the disclosure, then runs the platform's pack in the SDK's WebView.
+  runTree(
+    sessionId: string,
+    config: TreeRunConfig,
+    disclosure: TreeDisclosure
+  ): Promise<TreeSummary>;
 
   // Cancels the verb in flight and closes the login page if open.
   cancel(sessionId: string): void;

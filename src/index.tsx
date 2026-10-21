@@ -5,9 +5,32 @@ import type {
   Claim,
   TypedOutput,
   ProofReport,
+  TreeRunConfig,
+  TreeDisclosure,
+  TreeSource as NativeTreeSource,
+  TreeSummary as NativeTreeSummary,
 } from './NativeZktlsReactNative';
 
-export type { SessionConfig, Disclosure, Claim, TypedOutput, ProofReport };
+export type {
+  SessionConfig,
+  Disclosure,
+  Claim,
+  TypedOutput,
+  ProofReport,
+  TreeRunConfig,
+  TreeDisclosure,
+};
+
+// The native SourceEvidence, lowercased: observed in the page, or attested.
+export type SourceEvidence = 'observed' | 'attested';
+
+export interface TreeSource extends Omit<NativeTreeSource, 'evidence'> {
+  evidence: SourceEvidence;
+}
+
+export interface TreeSummary extends Omit<NativeTreeSummary, 'sources'> {
+  sources: TreeSource[];
+}
 
 // The native Phase enum, lowercased. Carried as a string across the bridge and
 // narrowed to this union here.
@@ -60,13 +83,20 @@ export interface Subscription {
 
 // One instance per session, mirroring the native ZktlsClient. The native side
 // owns the real client and its opaque handles; this holds only the session id.
-// The flow is login -> capture -> prove -> claim; the SDK never retries and
-// neither should you. Call dispose() on every terminal path.
+// The flow is login -> capture -> prove -> claim, or a single runTree on a client
+// from createTree(); the SDK never retries and neither should you. Call
+// dispose() on every terminal path.
 export class ZktlsClient {
   private constructor(public readonly sessionId: string) {}
 
   static async create(config: SessionConfig): Promise<ZktlsClient> {
     const sessionId = await Native.create(config);
+    return new ZktlsClient(sessionId);
+  }
+
+  // A client for platform packs: no SessionConfig, each run takes its own config.
+  static async createTree(): Promise<ZktlsClient> {
+    const sessionId = await Native.createTree();
     return new ZktlsClient(sessionId);
   }
 
@@ -84,6 +114,18 @@ export class ZktlsClient {
 
   claim(): Promise<Claim> {
     return Native.claim(this.sessionId);
+  }
+
+  // The app gets a summary only; the data goes to config.resultUrl.
+  runTree(
+    config: TreeRunConfig,
+    disclosure: TreeDisclosure
+  ): Promise<TreeSummary> {
+    return Native.runTree(
+      this.sessionId,
+      config,
+      disclosure
+    ) as Promise<TreeSummary>;
   }
 
   cancel(): void {

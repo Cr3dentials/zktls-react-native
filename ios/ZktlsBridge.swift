@@ -38,6 +38,45 @@ import ZktlsSDK
     }
   }
 
+  // A client for platform packs. It shares the session registry, so cancel and
+  // dispose work on it as on any session.
+  @objc public func createTree(completion: @escaping (String?, NSError?) -> Void) {
+    let client = ZktlsClient()
+    let sessionId = UUID().uuidString
+    Task {
+      await client.onProgress { [weak self] phase, percent in
+        self?.onProgress?(sessionId, ZktlsBridge.phaseToString(phase), Int(percent))
+      }
+      lock.lock(); sessions[sessionId] = client; lock.unlock()
+      completion(sessionId, nil)
+    }
+  }
+
+  @objc public func runTree(
+    _ sessionId: String,
+    config: NSDictionary,
+    disclosure: NSDictionary,
+    completion: @escaping (NSDictionary?, NSError?) -> Void
+  ) {
+    guard let client = client(sessionId) else {
+      return completion(nil, ZktlsBridge.internalError("unknown session"))
+    }
+    let treeConfig = ZktlsBridge.readTreeRunConfig(config)
+    let treeDisclosure = ZktlsBridge.readTreeDisclosure(disclosure)
+    Task { @MainActor in
+      guard let vc = ZktlsBridge.topViewController() else {
+        return completion(nil, ZktlsBridge.internalError("no view controller for the tree WebView"))
+      }
+      let host = TreeWebViewHost(presentingFrom: vc, disclosure: treeDisclosure)
+      do {
+        let summary = try await client.runTree(config: treeConfig, host: host)
+        completion(ZktlsBridge.writeTreeSummary(summary), nil)
+      } catch {
+        completion(nil, ZktlsBridge.mapError(error))
+      }
+    }
+  }
+
   @objc public func login(
     _ sessionId: String,
     disclosure: NSDictionary?,
@@ -172,6 +211,38 @@ import ZktlsSDK
     )
   }
 
+  private static func readTreeRunConfig(_ d: NSDictionary) -> TreeRunConfig {
+    func s(_ k: String) -> String { d[k] as? String ?? "" }
+    return TreeRunConfig(
+      baseUrl: s("baseUrl"),
+      appCredential: s("appCredential"),
+      userIdHash: s("userIdHash"),
+      idempotencyKey: s("idempotencyKey"),
+      clientRegion: s("clientRegion"),
+      networkKey: s("networkKey"),
+      platformId: s("platformId"),
+      trustBundleJson: s("trustBundleJson"),
+      trustBundleUrl: s("trustBundleUrl"),
+      trustOperatorKey: s("trustOperatorKey"),
+      policyBundleJson: s("policyBundleJson"),
+      policyBundleDigest: s("policyBundleDigest"),
+      relyingPartyNonceHex: s("relyingPartyNonceHex"),
+      resultUrl: s("resultUrl"),
+      resultToken: s("resultToken"),
+      paramsJson: s("paramsJson")
+    )
+  }
+
+  private static func readTreeDisclosure(_ d: NSDictionary) -> TreeDisclosure {
+    func s(_ k: String) -> String { d[k] as? String ?? "" }
+    return TreeDisclosure(
+      title: s("title"),
+      message: s("message"),
+      accept: s("accept"),
+      decline: s("decline")
+    )
+  }
+
   private static func phaseToString(_ phase: Phase) -> String {
     switch phase {
     case .loggingIn: return "loggingIn"
@@ -219,6 +290,41 @@ import ZktlsSDK
 
   private static func writeTypedOutput(_ o: TypedOutput) -> NSDictionary {
     return ["name": o.name, "valueJson": o.valueJson]
+  }
+
+  // claim is null unless the pack claims; NSNull crosses as JS null.
+  private static func writeTreeSummary(_ s: TreeSummary) -> NSDictionary {
+    let claim: Any
+    if let c = s.claim { claim = writeClaim(c) } else { claim = NSNull() }
+    return [
+      "succeeded": s.succeeded,
+      "error": s.error,
+      "sources": s.sources.map { writeTreeSource($0) },
+      "claim": claim,
+      "apiCalls": Int(s.apiCalls),
+      "durationMs": String(s.durationMs),
+      "delivered": s.delivered,
+      "deliveryError": s.deliveryError,
+      "resultBytes": String(s.resultBytes),
+      "isolation": s.isolation,
+      "handedOff": s.handedOff,
+    ]
+  }
+
+  private static func writeTreeSource(_ t: TreeSource) -> NSDictionary {
+    let evidence: String
+    switch t.evidence {
+    case .observed: evidence = "observed"
+    case .attested: evidence = "attested"
+    }
+    return [
+      "storeAs": t.storeAs,
+      "evidence": evidence,
+      "rows": String(t.rows),
+      "pages": Int(t.pages),
+      "bytes": String(t.bytes),
+      "complete": t.complete,
+    ]
   }
 
   // MARK: - Errors

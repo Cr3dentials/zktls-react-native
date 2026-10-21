@@ -92,6 +92,49 @@
   }];
 }
 
+- (void)createTree:(RCTPromiseResolveBlock)resolve
+            reject:(RCTPromiseRejectBlock)reject
+{
+  [_bridge createTreeWithCompletion:^(NSString *sessionId, NSError *error) {
+    if (error) { [self reject:reject with:error]; } else { resolve(sessionId); }
+  }];
+}
+
+- (void)runTree:(NSString *)sessionId
+         config:(JS::NativeZktlsReactNative::TreeRunConfig &)config
+     disclosure:(JS::NativeZktlsReactNative::TreeDisclosure &)disclosure
+        resolve:(RCTPromiseResolveBlock)resolve
+         reject:(RCTPromiseRejectBlock)reject
+{
+  NSDictionary *cfg = @{
+    @"baseUrl": config.baseUrl() ?: @"",
+    @"appCredential": config.appCredential() ?: @"",
+    @"userIdHash": config.userIdHash() ?: @"",
+    @"idempotencyKey": config.idempotencyKey() ?: @"",
+    @"clientRegion": config.clientRegion() ?: @"",
+    @"networkKey": config.networkKey() ?: @"",
+    @"platformId": config.platformId() ?: @"",
+    @"trustBundleJson": config.trustBundleJson() ?: @"",
+    @"trustBundleUrl": config.trustBundleUrl() ?: @"",
+    @"trustOperatorKey": config.trustOperatorKey() ?: @"",
+    @"policyBundleJson": config.policyBundleJson() ?: @"",
+    @"policyBundleDigest": config.policyBundleDigest() ?: @"",
+    @"relyingPartyNonceHex": config.relyingPartyNonceHex() ?: @"",
+    @"resultUrl": config.resultUrl() ?: @"",
+    @"resultToken": config.resultToken() ?: @"",
+    @"paramsJson": config.paramsJson() ?: @"",
+  };
+  NSDictionary *d = @{
+    @"title": disclosure.title() ?: @"",
+    @"message": disclosure.message() ?: @"",
+    @"accept": disclosure.accept() ?: @"",
+    @"decline": disclosure.decline() ?: @"",
+  };
+  [_bridge runTree:sessionId config:cfg disclosure:d completion:^(NSDictionary *summary, NSError *error) {
+    if (error) { [self reject:reject with:error]; } else { resolve(summary); }
+  }];
+}
+
 - (void)cancel:(NSString *)sessionId
 {
   [_bridge cancel:sessionId];
