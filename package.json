@@ -48,7 +48,7 @@
     "url": "git+https://github.com/Cr3dentials/zktls-react-native.git"
   },
   "author": "Diego Pons <diegojean1995@gmail.com> (https://github.com/Cr3dentials)",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "bugs": {
     "url": "https://github.com/Cr3dentials/zktls-react-native/issues"
   },
