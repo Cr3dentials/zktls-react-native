@@ -12,7 +12,7 @@ import {
   type SessionConfig,
   type TreeDisclosure,
   type TreeSummary,
-} from 'zktls-react-native';
+} from '@cr3dentials-org/zktls-react-native';
 import { labSettings } from './labSettings';
 
 // Placeholder configuration. Fill these from your backend before a real run:
