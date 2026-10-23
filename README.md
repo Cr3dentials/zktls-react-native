@@ -1,7 +1,7 @@
 # zktls-react-native
 
 React Native bridge for the [zkTLS native SDK](https://github.com/Cr3dentials/zktls-sdk). It exposes
-the SDK's six verbs to a React Native app: the native SDK does the cryptography, this package is the
+the SDK's API to a React Native app: the native SDK does the cryptography, this package is the
 thin bridge that lets JavaScript drive it. Turbo Module, New Architecture, one API on both platforms.
 
 ## Install
@@ -20,7 +20,7 @@ source 'https://github.com/Cr3dentials/zktls-sdk-releases.git'
 source 'https://cdn.cocoapods.org/'
 ```
 
-## The six verbs
+## Proving a fact
 
 `ZktlsClient` mirrors the SDK's facade: `create`, `login`, `capture`, `prove`, `claim`, `onProgress`,
 `cancel`, `dispose`. `create` takes a `SessionConfig` (baseUrl, appCredential, the trust and policy
@@ -45,6 +45,10 @@ try {
 
 A failed verb rejects with a `code` (an `SdkErrorCode`); `Transport` and `Policy` carry text. The SDK
 never retries, and neither should the app.
+
+On Android a session shows the SDK's foreground-service notification while it is protected: from
+`login` to the end of the proof, and while a pack's run is with the attester. Its text and icon are the
+SDK's resources, which an app can override.
 
 Both bridges are verified against the real SDK: the round-trips run on an Android device and an iOS
 simulator. `example/` is a runnable harness whose "Test bridge" button exercises the round-trips that

@@ -117,7 +117,8 @@ import ZktlsSDK
         _ = try await client.capture()
         completion(nil)
       } catch {
-        release(sessionId)
+        // SessionLost keeps the login: its recovery is another capture.
+        if case .SessionLost? = error as? SdkError {} else { release(sessionId) }
         completion(ZktlsBridge.mapError(error))
       }
     }
@@ -133,6 +134,8 @@ import ZktlsSDK
     Task {
       do {
         let report = try await client.prove()
+        // A rejected proof ends the session: there is no claim to fetch.
+        if !report.accepted { release(sessionId) }
         completion(ZktlsBridge.writeProofReport(report), nil)
       } catch {
         release(sessionId)
@@ -205,7 +208,7 @@ import ZktlsSDK
   private static func makePresenter(_ disclosure: NSDictionary?) -> WebViewLoginPresenter? {
     guard let vc = topViewController() else { return nil }
     if let disclosure = disclosure {
-      return WebViewLoginPresenter(presentingFrom: vc) { _ in readDisclosure(disclosure) }
+      return WebViewLoginPresenter(presentingFrom: vc) { domains in readDisclosure(disclosure, domains) }
     }
     return WebViewLoginPresenter(presentingFrom: vc)
   }
@@ -242,14 +245,14 @@ import ZktlsSDK
     )
   }
 
-  private static func readDisclosure(_ d: NSDictionary) -> LoginDisclosure {
-    func s(_ k: String) -> String { d[k] as? String ?? "" }
-    return LoginDisclosure(
-      title: s("title"),
-      message: s("message"),
-      accept: s("accept"),
-      decline: s("decline")
-    )
+  // A field left out keeps the SDK's standard text for the login's cookie domains.
+  private static func readDisclosure(_ d: NSDictionary, _ domains: [String]) -> LoginDisclosure {
+    var disclosure = LoginDisclosure.standard(domains: domains)
+    if let v = d["title"] as? String { disclosure.title = v }
+    if let v = d["message"] as? String { disclosure.message = v }
+    if let v = d["accept"] as? String { disclosure.accept = v }
+    if let v = d["decline"] as? String { disclosure.decline = v }
+    return disclosure
   }
 
   private static func readTreeRunConfig(_ d: NSDictionary) -> TreeRunConfig {
@@ -333,7 +336,8 @@ import ZktlsSDK
     return ["name": o.name, "valueJson": o.valueJson]
   }
 
-  // claim is null unless the pack claims; NSNull crosses as JS null.
+  // claim is always null: the attester posts a pack's claim to the backend
+  // itself. NSNull crosses as JS null.
   private static func writeTreeSummary(_ s: TreeSummary) -> NSDictionary {
     let claim: Any
     if let c = s.claim { claim = writeClaim(c) } else { claim = NSNull() }

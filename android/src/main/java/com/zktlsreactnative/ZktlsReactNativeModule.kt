@@ -32,8 +32,8 @@ class ZktlsReactNativeModule(private val reactContext: ReactApplicationContext) 
   // wires it: it follows network changes and, with the foreground service, keeps
   // a session alive when the user leaves the app.
   private val lifecycles = ConcurrentHashMap<String, ZkTlsLifecycle>()
-  // ZkTlsSessionService has a single slot: the session that started it last owns
-  // it, so an earlier session ending does not stop a later one's service.
+  // ZkTlsSessionService has a single slot: the session that started it owns it,
+  // and a later session goes on without the service rather than take it over.
   private val serviceOwner = AtomicReference<String?>(null)
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
@@ -98,7 +98,7 @@ class ZktlsReactNativeModule(private val reactContext: ReactApplicationContext) 
     // The presenter shows the disclosure, then the login page, on the UI thread.
     // Falls back to the SDK's standard disclosure when none is given.
     val presenter = if (disclosure != null) {
-      WebViewLoginPresenter(activity) { readDisclosure(disclosure) }
+      WebViewLoginPresenter(activity) { domains -> readDisclosure(disclosure, domains) }
     } else {
       WebViewLoginPresenter(activity)
     }
@@ -122,7 +122,8 @@ class ZktlsReactNativeModule(private val reactContext: ReactApplicationContext) 
         client.capture()
         promise.resolve(null)
       } catch (e: Throwable) {
-        release(sessionId)
+        // SessionLost keeps the login: its recovery is another capture.
+        if (e !is SdkException.SessionLost) release(sessionId)
         rejectSdk(promise, e)
       }
     }
@@ -132,7 +133,10 @@ class ZktlsReactNativeModule(private val reactContext: ReactApplicationContext) 
     val client = sessions[sessionId] ?: return promise.reject("Internal", "unknown session")
     scope.launch {
       try {
-        promise.resolve(writeProofReport(client.prove()))
+        val report = client.prove()
+        // A rejected proof ends the session: there is no claim to fetch.
+        if (!report.accepted) release(sessionId)
+        promise.resolve(writeProofReport(report))
       } catch (e: Throwable) {
         release(sessionId)
         rejectSdk(promise, e)
@@ -175,11 +179,14 @@ class ZktlsReactNativeModule(private val reactContext: ReactApplicationContext) 
     val client = sessions[sessionId] ?: return
     val lifecycle = lifecycles[sessionId] ?: return
     lifecycle.begin()
+    if (!serviceOwner.compareAndSet(null, sessionId)) return
     try {
       ZkTlsSessionService.start(reactContext, lifecycle) { client.cancel() }
-      serviceOwner.set(sessionId)
     } catch (e: IllegalStateException) {
       // ForegroundServiceStartNotAllowedException: the app is in the background.
+      // start set the slot before it threw, so clear it.
+      serviceOwner.set(null)
+      ZkTlsSessionService.stop(reactContext)
     }
   }
 

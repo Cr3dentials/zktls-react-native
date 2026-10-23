@@ -35,12 +35,16 @@ fun readSessionConfig(map: ReadableMap): SessionConfig = SessionConfig(
 
 // Builds the consent screen's text. A field left out on the JS side reads as
 // empty here.
-fun readDisclosure(map: ReadableMap): LoginDisclosure = LoginDisclosure(
-  title = map.getString("title") ?: "",
-  message = map.getString("message") ?: "",
-  accept = map.getString("accept") ?: "",
-  decline = map.getString("decline") ?: "",
-)
+// A field left out keeps the SDK's standard text for the login's cookie domains.
+fun readDisclosure(map: ReadableMap, domains: List<String>): LoginDisclosure {
+  val standard = LoginDisclosure.standard(domains)
+  return LoginDisclosure(
+    title = map.getString("title") ?: standard.title,
+    message = map.getString("message") ?: standard.message,
+    accept = map.getString("accept") ?: standard.accept,
+    decline = map.getString("decline") ?: standard.decline,
+  )
+}
 
 fun readTreeRunConfig(map: ReadableMap): TreeRunConfig = TreeRunConfig(
   baseUrl = map.getString("baseUrl") ?: "",
