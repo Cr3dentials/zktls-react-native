@@ -11,16 +11,14 @@ minSdk 24, iOS 14+. The Android app currently builds with JDK 17; iOS needs Xcod
 
 ## The native SDK
 
-The bridge links the compiled SDK, not its source. A released app resolves it from the SDK's published
-artifacts: `xyz.cr3dentials:zktls-sdk:1.0.0` from Maven for Android, and the `ZktlsSDK` Swift package
-or pod from [zktls-sdk-releases](https://github.com/Cr3dentials/zktls-sdk-releases) for iOS. Nothing in
-the bridge changes when that release lands.
+The bridge links the compiled SDK, not its source: `xyz.cr3dentials:zktls-sdk:1.0.0` from Maven Central
+for Android, and the `ZktlsSDK` pod from [zktls-sdk-releases](https://github.com/Cr3dentials/zktls-sdk-releases)
+for iOS. That repository is its own CocoaPods spec source, so an app's `Podfile` lists it first:
 
-SDK 1.0.0 is not published yet, so for now it is built locally and this package consumes it from there:
-from [Cr3dentials/zktls-sdk](https://github.com/Cr3dentials/zktls-sdk),
-`:sdk:publishReleasePublicationToMavenLocal` puts the AAR in the local Maven cache (resolved through
-`mavenLocal()`), and `build-ios.sh` produces the Swift package the example's Podfile points at as a
-local `ZktlsSDK` pod.
+```ruby
+source 'https://github.com/Cr3dentials/zktls-sdk-releases.git'
+source 'https://cdn.cocoapods.org/'
+```
 
 ## The six verbs
 

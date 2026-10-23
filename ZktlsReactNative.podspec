@@ -17,9 +17,8 @@ Pod::Spec.new do |s|
   s.private_header_files = "ios/**/*.h"
   s.swift_version = "5.0"
 
-  # The native zkTLS SDK. Comes from the releases repo's pod once published;
-  # during local-binary-first dev, point the example Podfile at the locally
-  # built pod or xcframework (build-ios.sh in the zktls-sdk repo).
+  # The native zkTLS SDK, from the releases repo's pod: the app's Podfile lists
+  # https://github.com/Cr3dentials/zktls-sdk-releases.git as a source.
   s.dependency "ZktlsSDK"
 
   install_modules_dependencies(s)
