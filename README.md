@@ -20,7 +20,9 @@ or later. On iOS, the SDK needs iOS 14.0 or later.
 
 ## Install
 
-Not on npm yet: `npm install github:Cr3dentials/zktls-react-native`.
+```sh
+npm install @cr3dentials-org/zktls-react-native
+```
 
 Android needs nothing more: Gradle fetches the SDK from Maven Central. On iOS the SDK's releases repository
 is its own CocoaPods spec source, and CocoaPods takes a pod from the first source that has it, so list it
@@ -59,7 +61,7 @@ const config: SessionConfig = {
 ## Run a session
 
 ```ts
-import { ZktlsClient, type ZktlsError } from 'zktls-react-native';
+import { ZktlsClient, type ZktlsError } from '@cr3dentials-org/zktls-react-native';
 
 async function prove(config: SessionConfig) {
   const client = await ZktlsClient.create(config); // one client per session the user starts

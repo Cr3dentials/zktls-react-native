@@ -1,6 +1,6 @@
 {
-  "name": "zktls-react-native",
-  "version": "0.1.0",
+  "name": "@cr3dentials-org/zktls-react-native",
+  "version": "1.0.0",
   "description": "React Native bridge for the Cr3dentials zkTLS native SDK",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
@@ -20,6 +20,7 @@
     "cpp",
     "*.podspec",
     "react-native.config.js",
+    "CHANGELOG.md",
     "!ios/build",
     "!android/build",
     "!android/gradle",
@@ -54,7 +55,8 @@
   },
   "homepage": "https://github.com/Cr3dentials/zktls-react-native#readme",
   "publishConfig": {
-    "registry": "https://registry.npmjs.org/"
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
   },
   "devDependencies": {
     "@eslint/compat": "^2.1.0",
