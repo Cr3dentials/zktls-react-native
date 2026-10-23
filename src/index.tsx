@@ -55,8 +55,8 @@ export interface ProgressEvent {
 }
 
 // The native SdkError/SdkException variants. A rejected verb carries one of
-// these as `code`; Transport and Policy also carry `text`. Internal is a fault
-// inside the SDK that was not an SdkError.
+// these as `code`; for Transport and Policy, `message` carries the SDK's text.
+// Internal is a fault inside the SDK that was not an SdkError.
 export type SdkErrorCode =
   | 'NotLoggedIn'
   | 'SessionLost'
@@ -73,7 +73,6 @@ export type SdkErrorCode =
 
 export interface ZktlsError extends Error {
   code: SdkErrorCode;
-  text?: string;
 }
 
 // The listener handle onProgress returns; call remove() to stop listening.
