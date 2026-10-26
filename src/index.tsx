@@ -5,10 +5,9 @@ import type {
   Claim,
   TypedOutput,
   ProofReport,
-  TreeRunConfig,
-  TreeDisclosure,
-  TreeSource as NativeTreeSource,
-  TreeSummary as NativeTreeSummary,
+  Theme,
+  PlatformOutcome as NativePlatformOutcome,
+  VerifyOutcome as NativeVerifyOutcome,
 } from './NativeZktlsReactNative';
 
 export type {
@@ -17,23 +16,23 @@ export type {
   Claim,
   TypedOutput,
   ProofReport,
-  TreeRunConfig,
-  TreeDisclosure,
+  Theme,
 };
 
-// The native SourceEvidence, lowercased: observed in the page, or attested.
-export type SourceEvidence = 'observed' | 'attested';
+// The native PlatformStatus, lowercased.
+export type PlatformStatus = 'done' | 'failed' | 'notStarted';
 
-export interface TreeSource extends Omit<NativeTreeSource, 'evidence'> {
-  evidence: SourceEvidence;
+export interface PlatformOutcome extends Omit<NativePlatformOutcome, 'status'> {
+  status: PlatformStatus;
 }
 
-export interface TreeSummary extends Omit<NativeTreeSummary, 'sources'> {
-  sources: TreeSource[];
+export interface VerifyOutcome extends Omit<NativeVerifyOutcome, 'platforms'> {
+  platforms: PlatformOutcome[];
 }
 
 // The native Phase enum, lowercased. Carried as a string across the bridge and
-// narrowed to this union here.
+// narrowed to this union here. A proof session reports the proof phases; the
+// others are the native enum's too.
 export type Phase =
   | 'loggingIn'
   | 'collecting'
@@ -69,33 +68,62 @@ export type SdkErrorCode =
   | 'InsufficientMemory'
   | 'Transport'
   | 'Policy'
+  | 'Refused'
   | 'Internal';
 
 export interface ZktlsError extends Error {
   code: SdkErrorCode;
+  // For Refused: why the verification did not start, such as
+  // 'device_not_verified' or 'app_key_invalid'.
+  refusal?: string;
 }
+
+// A Refused rejection carries its refusal code in userInfo.
+function withRefusal(e: unknown): never {
+  const err = e as ZktlsError & { userInfo?: { refusal?: string } };
+  if (err && err.code === 'Refused') err.refusal = err.userInfo?.refusal;
+  throw err;
+}
+
+// The SDK: configure once, when the app starts, then verify per user. verify
+// shows the SDK's own screens, runs each platform, and resolves with how each
+// platform ended; your server gets the data in signed webhooks.
+export const Zktls = {
+  configure(
+    appKey: string,
+    theme?: Theme,
+    strings?: Record<string, string>
+  ): Promise<void> {
+    return Native.configure(appKey, theme, strings);
+  },
+
+  verify(platforms: string[], reference: string): Promise<VerifyOutcome> {
+    return (
+      Native.verify(platforms, reference) as Promise<VerifyOutcome>
+    ).catch(withRefusal);
+  },
+
+  verifyToken(token: string): Promise<VerifyOutcome> {
+    return (Native.verifyToken(token) as Promise<VerifyOutcome>).catch(
+      withRefusal
+    );
+  },
+};
 
 // The listener handle onProgress returns; call remove() to stop listening.
 export interface Subscription {
   remove(): void;
 }
 
-// One instance per session, mirroring the native ZktlsClient. The native side
-// owns the real client and its opaque handles; this holds only the session id.
-// The flow is login -> capture -> prove -> claim, or a single runTree on a client
-// from createTree(); the SDK never retries and neither should you. Call
-// dispose() on every terminal path.
+// One instance per proof session, mirroring the native ZktlsClient. The native
+// side owns the real client and its opaque handles; this holds only the session
+// id. The flow is login -> capture -> prove -> claim; the SDK never retries and
+// neither should you. Call dispose() on every terminal path.
 export class ZktlsClient {
   private constructor(public readonly sessionId: string) {}
 
   static async create(config: SessionConfig): Promise<ZktlsClient> {
     const sessionId = await Native.create(config);
-    return new ZktlsClient(sessionId);
-  }
-
-  // A client for platform packs: no SessionConfig, each run takes its own config.
-  static async createTree(): Promise<ZktlsClient> {
-    const sessionId = await Native.createTree();
     return new ZktlsClient(sessionId);
   }
 
@@ -113,18 +141,6 @@ export class ZktlsClient {
 
   claim(): Promise<Claim> {
     return Native.claim(this.sessionId);
-  }
-
-  // The app gets a summary only; the data goes to config.resultUrl.
-  runTree(
-    config: TreeRunConfig,
-    disclosure: TreeDisclosure
-  ): Promise<TreeSummary> {
-    return Native.runTree(
-      this.sessionId,
-      config,
-      disclosure
-    ) as Promise<TreeSummary>;
   }
 
   cancel(): void {

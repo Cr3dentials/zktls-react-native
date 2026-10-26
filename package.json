@@ -1,6 +1,6 @@
 {
   "name": "@cr3dentials-org/zktls-react-native",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "React Native bridge for the Cr3dentials zkTLS native SDK",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",

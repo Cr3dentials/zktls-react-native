@@ -92,46 +92,39 @@
   }];
 }
 
-- (void)createTree:(RCTPromiseResolveBlock)resolve
-            reject:(RCTPromiseRejectBlock)reject
+- (void)configure:(NSString *)appKey
+            theme:(JS::NativeZktlsReactNative::Theme &)theme
+          strings:(NSDictionary *)strings
+          resolve:(RCTPromiseResolveBlock)resolve
+           reject:(RCTPromiseRejectBlock)reject
 {
-  [_bridge createTreeWithCompletion:^(NSString *sessionId, NSError *error) {
-    if (error) { [self reject:reject with:error]; } else { resolve(sessionId); }
+  // Every theme field is optional; include only the ones JS actually sent.
+  NSMutableDictionary *t = [NSMutableDictionary dictionary];
+  if (theme.accent()) t[@"accent"] = theme.accent();
+  if (theme.background()) t[@"background"] = theme.background();
+  if (theme.text()) t[@"text"] = theme.text();
+  if (theme.logo()) t[@"logo"] = theme.logo();
+  [_bridge configure:appKey theme:t strings:strings completion:^(NSError *error) {
+    if (error) { [self reject:reject with:error]; } else { resolve(nil); }
   }];
 }
 
-- (void)runTree:(NSString *)sessionId
-         config:(JS::NativeZktlsReactNative::TreeRunConfig &)config
-     disclosure:(JS::NativeZktlsReactNative::TreeDisclosure &)disclosure
-        resolve:(RCTPromiseResolveBlock)resolve
-         reject:(RCTPromiseRejectBlock)reject
+- (void)verify:(NSArray *)platforms
+     reference:(NSString *)reference
+       resolve:(RCTPromiseResolveBlock)resolve
+        reject:(RCTPromiseRejectBlock)reject
 {
-  NSDictionary *cfg = @{
-    @"baseUrl": config.baseUrl() ?: @"",
-    @"appCredential": config.appCredential() ?: @"",
-    @"userIdHash": config.userIdHash() ?: @"",
-    @"idempotencyKey": config.idempotencyKey() ?: @"",
-    @"clientRegion": config.clientRegion() ?: @"",
-    @"networkKey": config.networkKey() ?: @"",
-    @"platformId": config.platformId() ?: @"",
-    @"trustBundleJson": config.trustBundleJson() ?: @"",
-    @"trustBundleUrl": config.trustBundleUrl() ?: @"",
-    @"trustOperatorKey": config.trustOperatorKey() ?: @"",
-    @"policyBundleJson": config.policyBundleJson() ?: @"",
-    @"policyBundleDigest": config.policyBundleDigest() ?: @"",
-    @"relyingPartyNonceHex": config.relyingPartyNonceHex() ?: @"",
-    @"resultUrl": config.resultUrl() ?: @"",
-    @"resultToken": config.resultToken() ?: @"",
-    @"paramsJson": config.paramsJson() ?: @"",
-  };
-  NSDictionary *d = @{
-    @"title": disclosure.title() ?: @"",
-    @"message": disclosure.message() ?: @"",
-    @"accept": disclosure.accept() ?: @"",
-    @"decline": disclosure.decline() ?: @"",
-  };
-  [_bridge runTree:sessionId config:cfg disclosure:d completion:^(NSDictionary *summary, NSError *error) {
-    if (error) { [self reject:reject with:error]; } else { resolve(summary); }
+  [_bridge verify:platforms reference:reference completion:^(NSDictionary *outcome, NSError *error) {
+    if (error) { [self reject:reject with:error]; } else { resolve(outcome); }
+  }];
+}
+
+- (void)verifyToken:(NSString *)token
+            resolve:(RCTPromiseResolveBlock)resolve
+             reject:(RCTPromiseRejectBlock)reject
+{
+  [_bridge verifyToken:token completion:^(NSDictionary *outcome, NSError *error) {
+    if (error) { [self reject:reject with:error]; } else { resolve(outcome); }
   }];
 }
 
@@ -150,7 +143,7 @@
 }
 
 // The Swift side puts the JS error code in userInfo["code"] and the
-// Transport/Policy text in userInfo["text"].
+// Transport/Policy/Refused text in userInfo["text"]; userInfo reaches JS.
 - (void)reject:(RCTPromiseRejectBlock)reject with:(NSError *)error
 {
   NSString *code = error.userInfo[@"code"] ?: @"Internal";

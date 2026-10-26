@@ -1,16 +1,16 @@
 package com.zktlsreactnative
 
 import ai.zktls.sdk.LoginDisclosure
-import ai.zktls.sdk.Phase
 import ai.zktls.sdk.SdkException
-import ai.zktls.sdk.TreeWebViewHost
 import ai.zktls.sdk.WebViewLoginPresenter
+import ai.zktls.sdk.Zktls
 import ai.zktls.sdk.ZkTlsLifecycle
 import ai.zktls.sdk.ZkTlsSessionService
 import ai.zktls.sdk.ZktlsClient
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -53,40 +53,39 @@ class ZktlsReactNativeModule(private val reactContext: ReactApplicationContext) 
     }
   }
 
-  // A client for platform packs. It shares the session registry, so cancel and
-  // dispose work on it as on any session.
-  override fun createTree(promise: Promise) {
+  // The SDK's facade: configure once, then verify per user. verify shows the
+  // SDK's own screens over the current activity and keeps its session alive
+  // itself, so it needs none of the proof sessions' lifecycle here.
+  override fun configure(appKey: String, theme: ReadableMap?, strings: ReadableMap?, promise: Promise) {
     try {
-      val client = ZktlsClient()
-      val sessionId = UUID.randomUUID().toString()
-      client.onProgress { phase, percent ->
-        // A pack that attests uploads to the attester once the page closes; the
-        // user may leave the app by then.
-        if (phase == Phase.ATTESTING) scope.launch { hold(sessionId) }
-        emitProgress(sessionId, phase, percent)
-      }
-      lifecycles[sessionId] = ZkTlsLifecycle(reactContext, client.lifecycleHandle)
-      sessions[sessionId] = client
-      promise.resolve(sessionId)
+      Zktls.configure(appKey, readTheme(reactContext, theme), readStrings(strings))
+      promise.resolve(null)
     } catch (e: Throwable) {
       rejectSdk(promise, e)
     }
   }
 
-  override fun runTree(sessionId: String, config: ReadableMap, disclosure: ReadableMap, promise: Promise) {
-    val client = sessions[sessionId] ?: return promise.reject("Internal", "unknown session")
+  override fun verify(platforms: ReadableArray, reference: String, promise: Promise) {
     val activity = reactContext.currentActivity
-      ?: return promise.reject("Internal", "no current activity for the tree WebView")
-    val treeConfig = readTreeRunConfig(config)
-    val treeDisclosure = readTreeDisclosure(disclosure)
+      ?: return promise.reject("Internal", "no current activity for the SDK's screens")
+    val ids = (0 until platforms.size()).mapNotNull { platforms.getString(it) }
     scope.launch {
       try {
-        val host = TreeWebViewHost(activity, treeDisclosure)
-        promise.resolve(writeTreeSummary(client.runTree(treeConfig, host)))
+        promise.resolve(writeVerifyOutcome(Zktls.verify(activity, ids, reference)))
       } catch (e: Throwable) {
         rejectSdk(promise, e)
-      } finally {
-        release(sessionId)
+      }
+    }
+  }
+
+  override fun verifyToken(token: String, promise: Promise) {
+    val activity = reactContext.currentActivity
+      ?: return promise.reject("Internal", "no current activity for the SDK's screens")
+    scope.launch {
+      try {
+        promise.resolve(writeVerifyOutcome(Zktls.verify(activity, token)))
+      } catch (e: Throwable) {
+        rejectSdk(promise, e)
       }
     }
   }
@@ -223,6 +222,14 @@ class ZktlsReactNativeModule(private val reactContext: ReactApplicationContext) 
       is SdkException.InsufficientMemory -> promise.reject("InsufficientMemory", "InsufficientMemory", e)
       is SdkException.Transport -> promise.reject("Transport", e.v1, e)
       is SdkException.Policy -> promise.reject("Policy", e.v1, e)
+      // The refusal code (device_not_verified, app_key_invalid, ...) reaches JS
+      // as userInfo.refusal.
+      is SdkException.Refused -> promise.reject(
+        "Refused",
+        e.message,
+        e,
+        Arguments.createMap().apply { putString("refusal", e.code) },
+      )
       else -> promise.reject("Internal", e.message ?: "internal error", e)
     }
   }
