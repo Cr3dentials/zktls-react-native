@@ -15,6 +15,8 @@ import ZktlsSDK
   // One lifecycle per session, on the client's own handle, as the SDK's sample
   // wires it: it holds background time and follows network changes.
   private var lifecycles: [String: ZkTlsLifecycle] = [:]
+  // The verifications in flight, so invalidate can cancel them.
+  private var verifications: [UUID: Task<Void, Never>] = [:]
   private let lock = NSLock()
 
   // Set by the .mm to receive progress. Args: sessionId, phase string, percent.
@@ -41,47 +43,75 @@ import ZktlsSDK
     }
   }
 
-  // A client for platform packs. It shares the session registry, so cancel and
-  // dispose work on it as on any session.
-  @objc public func createTree(completion: @escaping (String?, NSError?) -> Void) {
-    let client = ZktlsClient()
-    let sessionId = UUID().uuidString
+  // The SDK's facade: configure once, then verify per user. verify shows the
+  // SDK's own screens over the key window's top view controller and holds its
+  // own background time, so it needs none of the proof sessions' lifecycle here.
+  // A theme color or a screen string it cannot use rejects with InvalidArgument
+  // and leaves the SDK's configuration as it was.
+  @objc public func configure(
+    _ appKey: String,
+    theme: NSDictionary?,
+    strings: NSDictionary?,
+    completion: @escaping (NSError?) -> Void
+  ) {
     Task { @MainActor in
-      await client.onProgress { [weak self] phase, percent in
-        // A pack that attests uploads to the attester: hold background time until
-        // runTree returns.
-        if phase == .attesting { self?.hold(sessionId) }
-        self?.onProgress?(sessionId, ZktlsBridge.phaseToString(phase), Int(percent))
+      do {
+        let sdkTheme = try ZktlsBridge.readTheme(theme)
+        let sdkStrings = try ZktlsBridge.readStrings(strings)
+        Zktls.configure(appKey: appKey, theme: sdkTheme, strings: sdkStrings)
+        completion(nil)
+      } catch {
+        completion(error as NSError)
       }
-      register(sessionId, client)
-      completion(sessionId, nil)
     }
   }
 
-  @objc public func runTree(
-    _ sessionId: String,
-    config: NSDictionary,
-    disclosure: NSDictionary,
+  @objc public func verify(
+    _ platforms: [String],
+    reference: String,
     completion: @escaping (NSDictionary?, NSError?) -> Void
   ) {
-    guard let client = client(sessionId) else {
-      return completion(nil, ZktlsBridge.internalError("unknown session"))
-    }
-    let treeConfig = ZktlsBridge.readTreeRunConfig(config)
-    let treeDisclosure = ZktlsBridge.readTreeDisclosure(disclosure)
-    Task { @MainActor in
-      guard let vc = ZktlsBridge.topViewController() else {
-        return completion(nil, ZktlsBridge.internalError("no view controller for the tree WebView"))
-      }
-      let host = TreeWebViewHost(presentingFrom: vc, disclosure: treeDisclosure)
-      defer { release(sessionId) }
+    runVerification(completion) { try await Zktls.verify(platforms, reference: reference) }
+  }
+
+  @objc public func verifyToken(_ token: String, completion: @escaping (NSDictionary?, NSError?) -> Void) {
+    runVerification(completion) { try await Zktls.verify(token: token) }
+  }
+
+  // Cancels every verification in flight, when the module goes away: the SDK
+  // takes its screens down and each one's promise rejects with Cancelled.
+  @objc public func invalidate() {
+    lock.lock()
+    let running = Array(verifications.values)
+    verifications.removeAll()
+    lock.unlock()
+    running.forEach { $0.cancel() }
+  }
+
+  // Runs one verification on the main actor, kept until it ends so invalidate
+  // can cancel it.
+  private func runVerification(
+    _ completion: @escaping (NSDictionary?, NSError?) -> Void,
+    _ run: @escaping @MainActor () async throws -> VerifyOutcome
+  ) {
+    let id = UUID()
+    lock.lock()
+    defer { lock.unlock() }
+    verifications[id] = Task { @MainActor [weak self] in
       do {
-        let summary = try await client.runTree(config: treeConfig, host: host)
-        completion(ZktlsBridge.writeTreeSummary(summary), nil)
+        let outcome = try await run()
+        completion(ZktlsBridge.writeVerifyOutcome(outcome), nil)
       } catch {
         completion(nil, ZktlsBridge.mapError(error))
       }
+      self?.verificationEnded(id)
     }
+  }
+
+  private func verificationEnded(_ id: UUID) {
+    lock.lock()
+    verifications.removeValue(forKey: id)
+    lock.unlock()
   }
 
   @objc public func login(
@@ -255,36 +285,61 @@ import ZktlsSDK
     return disclosure
   }
 
-  private static func readTreeRunConfig(_ d: NSDictionary) -> TreeRunConfig {
-    func s(_ k: String) -> String { d[k] as? String ?? "" }
-    return TreeRunConfig(
-      baseUrl: s("baseUrl"),
-      appCredential: s("appCredential"),
-      userIdHash: s("userIdHash"),
-      idempotencyKey: s("idempotencyKey"),
-      clientRegion: s("clientRegion"),
-      networkKey: s("networkKey"),
-      platformId: s("platformId"),
-      trustBundleJson: s("trustBundleJson"),
-      trustBundleUrl: s("trustBundleUrl"),
-      trustOperatorKey: s("trustOperatorKey"),
-      policyBundleJson: s("policyBundleJson"),
-      policyBundleDigest: s("policyBundleDigest"),
-      relyingPartyNonceHex: s("relyingPartyNonceHex"),
-      resultUrl: s("resultUrl"),
-      resultToken: s("resultToken"),
-      paramsJson: s("paramsJson")
+  // The screens' theme. A color is "#RRGGBB" or "#AARRGGBB"; the logo is an
+  // image asset's name in the app. A field left out keeps the SDK's default, so
+  // an empty dictionary is the SDK's own look. A color in any other form throws.
+  @MainActor
+  private static func readTheme(_ d: NSDictionary?) throws -> ZktlsTheme {
+    var theme = ZktlsTheme()
+    guard let d = d else { return theme }
+    if let c = try themeColor(d, "accent") { theme.accent = c }
+    if let c = try themeColor(d, "background") { theme.background = c }
+    if let c = try themeColor(d, "text") { theme.text = c }
+    if let name = d["logo"] as? String { theme.logo = UIImage(named: name) }
+    return theme
+  }
+
+  // The theme's color `field`, nil when it is left out. Android rejects the same
+  // values with the same message.
+  private static func themeColor(_ d: NSDictionary, _ field: String) throws -> UIColor? {
+    guard let value = d[field], !(value is NSNull) else { return nil }
+    guard let hex = value as? String, let c = color(hex) else {
+      throw zktlsError("InvalidArgument", "theme.\(field) must be #RRGGBB or #AARRGGBB")
+    }
+    return c
+  }
+
+  // Exactly "#RRGGBB" (opaque) or "#AARRGGBB", hex digits in either case; nil
+  // for anything else, color names included.
+  private static func color(_ hex: String) -> UIColor? {
+    guard hex.hasPrefix("#") else { return nil }
+    let digits = hex.dropFirst()
+    guard digits.count == 6 || digits.count == 8,
+      digits.allSatisfy({ $0.isASCII && $0.isHexDigit }),
+      let v = UInt32(digits, radix: 16)
+    else { return nil }
+    let argb = digits.count == 6 ? (0xFF00_0000 | v) : v
+    return UIColor(
+      red: CGFloat((argb >> 16) & 0xFF) / 255,
+      green: CGFloat((argb >> 8) & 0xFF) / 255,
+      blue: CGFloat(argb & 0xFF) / 255,
+      alpha: CGFloat((argb >> 24) & 0xFF) / 255
     )
   }
 
-  private static func readTreeDisclosure(_ d: NSDictionary) -> TreeDisclosure {
-    func s(_ k: String) -> String { d[k] as? String ?? "" }
-    return TreeDisclosure(
-      title: s("title"),
-      message: s("message"),
-      accept: s("accept"),
-      decline: s("decline")
-    )
+  // The screens' words, by key. A null value is left out; any other value that
+  // is not a string throws, as on Android.
+  private static func readStrings(_ d: NSDictionary?) throws -> [String: String] {
+    var out: [String: String] = [:]
+    guard let d = d else { return out }
+    for (key, value) in d {
+      guard let k = key as? String, !(value is NSNull) else { continue }
+      guard let v = value as? String else {
+        throw zktlsError("InvalidArgument", "strings[\"\(k)\"] must be a string")
+      }
+      out[k] = v
+    }
+    return out
   }
 
   private static func phaseToString(_ phase: Phase) -> String {
@@ -336,46 +391,31 @@ import ZktlsSDK
     return ["name": o.name, "valueJson": o.valueJson]
   }
 
-  // claim is always null: the attester posts a pack's claim to the backend
-  // itself. NSNull crosses as JS null.
-  private static func writeTreeSummary(_ s: TreeSummary) -> NSDictionary {
-    let claim: Any
-    if let c = s.claim { claim = writeClaim(c) } else { claim = NSNull() }
+  // A platform's reason is nil unless it failed; NSNull crosses as JS null.
+  private static func writeVerifyOutcome(_ o: VerifyOutcome) -> NSDictionary {
     return [
-      "succeeded": s.succeeded,
-      "error": s.error,
-      "sources": s.sources.map { writeTreeSource($0) },
-      "claim": claim,
-      "apiCalls": Int(s.apiCalls),
-      "durationMs": String(s.durationMs),
-      "delivered": s.delivered,
-      "deliveryError": s.deliveryError,
-      "resultBytes": String(s.resultBytes),
-      "isolation": s.isolation,
-      "handedOff": s.handedOff,
-    ]
-  }
-
-  private static func writeTreeSource(_ t: TreeSource) -> NSDictionary {
-    let evidence: String
-    switch t.evidence {
-    case .observed: evidence = "observed"
-    case .attested: evidence = "attested"
-    }
-    return [
-      "storeAs": t.storeAs,
-      "evidence": evidence,
-      "rows": String(t.rows),
-      "pages": Int(t.pages),
-      "bytes": String(t.bytes),
-      "complete": t.complete,
+      "verificationId": o.verificationId,
+      "platforms": o.platforms.map { p -> NSDictionary in
+        let status: String
+        switch p.status {
+        case .done: status = "done"
+        case .failed: status = "failed"
+        case .notStarted: status = "notStarted"
+        }
+        return [
+          "platform": p.platform,
+          "status": status,
+          "reason": p.reason.map { $0 as Any } ?? NSNull(),
+        ]
+      },
     ]
   }
 
   // MARK: - Errors
 
   // Maps every SdkError to the code JS matches on (see SdkErrorCode in
-  // index.tsx). Transport and Policy carry their text; anything else is Internal.
+  // index.tsx). Transport, Policy and Refused carry their text; anything else is
+  // Internal. The bridge's own InvalidArgument is made by zktlsError directly.
   private static func mapError(_ error: Error) -> NSError {
     guard let e = error as? SdkError else {
       return zktlsError("Internal", (error as NSError).localizedDescription)
@@ -392,6 +432,7 @@ import ZktlsSDK
     case .InsufficientMemory: return zktlsError("InsufficientMemory", nil)
     case .Transport(let text): return zktlsError("Transport", text)
     case .Policy(let text): return zktlsError("Policy", text)
+    case .Refused(let code, let message): return zktlsError("Refused", message, refusal: code)
     }
   }
 
@@ -400,10 +441,12 @@ import ZktlsSDK
   }
 
   // The .mm reads userInfo["code"] for the JS error code and userInfo["text"]
-  // for the Transport/Policy message.
-  private static func zktlsError(_ code: String, _ text: String?) -> NSError {
+  // for the Transport/Policy/Refused/InvalidArgument message; React Native hands userInfo to
+  // JS, where index.tsx reads a Refused error's userInfo["refusal"].
+  private static func zktlsError(_ code: String, _ text: String?, refusal: String? = nil) -> NSError {
     var info: [String: Any] = ["code": code]
     if let text = text { info["text"] = text }
+    if let refusal = refusal { info["refusal"] = refusal }
     return NSError(domain: "Zktls", code: 0, userInfo: info)
   }
 }

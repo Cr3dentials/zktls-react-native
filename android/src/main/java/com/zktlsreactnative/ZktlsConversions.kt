@@ -3,15 +3,15 @@ package com.zktlsreactnative
 import ai.zktls.sdk.Claim
 import ai.zktls.sdk.LoginDisclosure
 import ai.zktls.sdk.Phase
+import ai.zktls.sdk.PlatformStatus
 import ai.zktls.sdk.ProofReport
 import ai.zktls.sdk.SessionConfig
-import ai.zktls.sdk.SourceEvidence
-import ai.zktls.sdk.TreeDisclosure
-import ai.zktls.sdk.TreeRunConfig
-import ai.zktls.sdk.TreeSource
-import ai.zktls.sdk.TreeSummary
+import ai.zktls.sdk.VerifyOutcome
+import ai.zktls.sdk.ZktlsTheme
+import android.content.Context
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.bridge.ReadableType
 import com.facebook.react.bridge.WritableMap
 
 // Converts between React Native's maps and the native SDK's types. The SDK
@@ -46,31 +46,54 @@ fun readDisclosure(map: ReadableMap, domains: List<String>): LoginDisclosure {
   )
 }
 
-fun readTreeRunConfig(map: ReadableMap): TreeRunConfig = TreeRunConfig(
-  baseUrl = map.getString("baseUrl") ?: "",
-  appCredential = map.getString("appCredential") ?: "",
-  userIdHash = map.getString("userIdHash") ?: "",
-  idempotencyKey = map.getString("idempotencyKey") ?: "",
-  clientRegion = map.getString("clientRegion") ?: "",
-  networkKey = map.getString("networkKey") ?: "",
-  platformId = map.getString("platformId") ?: "",
-  trustBundleJson = map.getString("trustBundleJson") ?: "",
-  trustBundleUrl = if (map.hasKey("trustBundleUrl")) map.getString("trustBundleUrl") ?: "" else "",
-  trustOperatorKey = map.getString("trustOperatorKey") ?: "",
-  policyBundleJson = map.getString("policyBundleJson") ?: "",
-  policyBundleDigest = map.getString("policyBundleDigest") ?: "",
-  relyingPartyNonceHex = map.getString("relyingPartyNonceHex") ?: "",
-  resultUrl = map.getString("resultUrl") ?: "",
-  resultToken = map.getString("resultToken") ?: "",
-  paramsJson = map.getString("paramsJson") ?: "",
-)
+// configure given a value it cannot use; rejected as InvalidArgument, with a
+// message naming the field. iOS rejects the same values with the same message.
+class InvalidArgumentException(message: String) : IllegalArgumentException(message)
 
-fun readTreeDisclosure(map: ReadableMap): TreeDisclosure = TreeDisclosure(
-  title = map.getString("title") ?: "",
-  message = map.getString("message") ?: "",
-  accept = map.getString("accept") ?: "",
-  decline = map.getString("decline") ?: "",
-)
+// Exactly "#RRGGBB" or "#AARRGGBB", hex digits in either case.
+private val hexColor = Regex("#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})")
+
+// The ARGB color int of a "#RRGGBB" (opaque) or "#AARRGGBB" color, or null for
+// anything else, color names included.
+fun parseHexColor(value: String): Int? {
+  if (!hexColor.matches(value)) return null
+  val digits = value.substring(1)
+  val argb = digits.toLong(16)
+  return (if (digits.length == 6) argb or 0xFF000000L else argb).toInt()
+}
+
+// The screens' theme. A color is "#RRGGBB" or "#AARRGGBB"; the logo is a
+// drawable's name in the app. A field left out keeps the SDK's default, so an
+// empty map is the SDK's own look. A color in any other form throws.
+fun readTheme(context: Context, map: ReadableMap?): ZktlsTheme {
+  if (map == null) return ZktlsTheme()
+  fun color(field: String): Int? {
+    if (!map.hasKey(field) || map.isNull(field)) return null
+    val value = if (map.getType(field) == ReadableType.String) map.getString(field) else null
+    return value?.let { parseHexColor(it) }
+      ?: throw InvalidArgumentException("theme.$field must be #RRGGBB or #AARRGGBB")
+  }
+  val logo = map.getString("logo")?.let {
+    context.resources.getIdentifier(it, "drawable", context.packageName).takeIf { id -> id != 0 }
+  }
+  return ZktlsTheme(accent = color("accent"), background = color("background"), text = color("text"), logo = logo)
+}
+
+// The screens' words, by key. A null value is left out, as iOS receives none;
+// any other value that is not a string throws, as on iOS.
+fun readStrings(map: ReadableMap?): Map<String, String> {
+  if (map == null) return emptyMap()
+  val out = mutableMapOf<String, String>()
+  val keys = map.keySetIterator()
+  while (keys.hasNextKey()) {
+    val key = keys.nextKey()
+    val type = map.getType(key)
+    if (type == ReadableType.Null) continue
+    val value = if (type == ReadableType.String) map.getString(key) else null
+    out[key] = value ?: throw InvalidArgumentException("strings[\"$key\"] must be a string")
+  }
+  return out
+}
 
 // The native Phase, lowercased to the strings the JS Phase union uses.
 fun phaseToString(phase: Phase): String = when (phase) {
@@ -121,33 +144,22 @@ fun writeTypedOutput(output: ai.zktls.sdk.TypedOutput): WritableMap = Arguments.
   putString("valueJson", output.valueJson)
 }
 
-fun writeTreeSummary(s: TreeSummary): WritableMap = Arguments.createMap().apply {
-  putBoolean("succeeded", s.succeeded)
-  putString("error", s.error)
-  val sourcesArr = Arguments.createArray()
-  for (source in s.sources) {
-    sourcesArr.pushMap(writeTreeSource(source))
-  }
-  putArray("sources", sourcesArr)
-  val claim = s.claim
-  if (claim != null) putMap("claim", writeClaim(claim)) else putNull("claim")
-  putInt("apiCalls", s.apiCalls.toInt())
-  putString("durationMs", s.durationMs.toString())
-  putBoolean("delivered", s.delivered)
-  putString("deliveryError", s.deliveryError)
-  putString("resultBytes", s.resultBytes.toString())
-  putString("isolation", s.isolation)
-  putBoolean("handedOff", s.handedOff)
+// The native PlatformStatus, lowercased to the strings the JS union uses.
+fun statusToString(status: PlatformStatus): String = when (status) {
+  PlatformStatus.DONE -> "done"
+  PlatformStatus.FAILED -> "failed"
+  PlatformStatus.NOT_STARTED -> "notStarted"
 }
 
-fun writeTreeSource(source: TreeSource): WritableMap = Arguments.createMap().apply {
-  putString("storeAs", source.storeAs)
-  putString("evidence", when (source.evidence) {
-    SourceEvidence.OBSERVED -> "observed"
-    SourceEvidence.ATTESTED -> "attested"
-  })
-  putString("rows", source.rows.toString())
-  putInt("pages", source.pages.toInt())
-  putString("bytes", source.bytes.toString())
-  putBoolean("complete", source.complete)
+fun writeVerifyOutcome(outcome: VerifyOutcome): WritableMap = Arguments.createMap().apply {
+  putString("verificationId", outcome.verificationId)
+  val platforms = Arguments.createArray()
+  for (p in outcome.platforms) {
+    platforms.pushMap(Arguments.createMap().apply {
+      putString("platform", p.platform)
+      putString("status", statusToString(p.status))
+      if (p.reason != null) putString("reason", p.reason) else putNull("reason")
+    })
+  }
+  putArray("platforms", platforms)
 }
