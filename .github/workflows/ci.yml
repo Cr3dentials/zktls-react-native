@@ -31,6 +31,9 @@ jobs:
       - name: Typecheck files
         run: yarn typecheck
 
+      - name: Test the Expo config plugin
+        run: yarn test
+
 
   build-library:
     runs-on: ubuntu-latest
@@ -47,9 +50,6 @@ jobs:
 
   build-android:
     runs-on: ubuntu-latest
-    # Builds the example against ZktlsSDK, which is local-only until the SDK publishes;
-    # non-blocking until then. TODO: remove once on the published SDK coordinate.
-    continue-on-error: true
 
     env:
       TURBO_CACHE_DIR: .turbo/android
@@ -109,9 +109,6 @@ jobs:
 
   build-ios:
     runs-on: macos-latest
-    # Builds the example against ZktlsSDK, which is local-only until the SDK publishes;
-    # non-blocking until then. TODO: remove once on the published SDK coordinate.
-    continue-on-error: true
 
     env:
       XCODE_VERSION: 26

@@ -1529,6 +1529,37 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@cr3dentials-org/zktls-react-native@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "@cr3dentials-org/zktls-react-native@workspace:."
+  dependencies:
+    "@eslint/compat": "npm:^2.1.0"
+    "@eslint/eslintrc": "npm:^3.3.6"
+    "@eslint/js": "npm:^9.39.5"
+    "@react-native/babel-preset": "npm:0.86.2"
+    "@react-native/eslint-config": "npm:0.86.2"
+    "@types/react": "npm:^19.2.0"
+    del-cli: "npm:^7.0.0"
+    eslint: "npm:^9.39.5"
+    eslint-config-prettier: "npm:^10.1.8"
+    eslint-plugin-ft-flow: "npm:^3.0.11"
+    eslint-plugin-prettier: "npm:^5.5.6"
+    prettier: "npm:^3.9.6"
+    react: "npm:19.2.3"
+    react-native: "npm:0.86.2"
+    react-native-builder-bob: "npm:^0.43.1"
+    turbo: "npm:^2.10.8"
+    typescript: "npm:^6.0.3"
+  peerDependencies:
+    expo: "*"
+    react: "*"
+    react-native: "*"
+  peerDependenciesMeta:
+    expo:
+      optional: true
+  languageName: unknown
+  linkType: soft
+
 "@eslint-community/eslint-utils@npm:^4.8.0, @eslint-community/eslint-utils@npm:^4.9.1":
   version: 4.10.1
   resolution: "@eslint-community/eslint-utils@npm:4.10.1"
@@ -8574,33 +8605,6 @@ __metadata:
     react-native: "npm:0.86.2"
     react-native-builder-bob: "npm:^0.43.1"
     react-native-monorepo-config: "npm:^0.4.0"
-  languageName: unknown
-  linkType: soft
-
-"zktls-react-native@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "zktls-react-native@workspace:."
-  dependencies:
-    "@eslint/compat": "npm:^2.1.0"
-    "@eslint/eslintrc": "npm:^3.3.6"
-    "@eslint/js": "npm:^9.39.5"
-    "@react-native/babel-preset": "npm:0.86.2"
-    "@react-native/eslint-config": "npm:0.86.2"
-    "@types/react": "npm:^19.2.0"
-    del-cli: "npm:^7.0.0"
-    eslint: "npm:^9.39.5"
-    eslint-config-prettier: "npm:^10.1.8"
-    eslint-plugin-ft-flow: "npm:^3.0.11"
-    eslint-plugin-prettier: "npm:^5.5.6"
-    prettier: "npm:^3.9.6"
-    react: "npm:19.2.3"
-    react-native: "npm:0.86.2"
-    react-native-builder-bob: "npm:^0.43.1"
-    turbo: "npm:^2.10.8"
-    typescript: "npm:^6.0.3"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
   languageName: unknown
   linkType: soft
 

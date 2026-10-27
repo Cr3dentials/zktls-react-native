@@ -5,6 +5,11 @@ require Pod::Executable.execute_command('node', ['-p',
     {paths: [process.argv[1]]},
   )', __dir__]).strip
 
+# The zkTLS SDK's pod comes from its releases repo, which is its own spec source.
+# CocoaPods takes a pod from the first source that has it, so it goes first.
+source 'https://github.com/Cr3dentials/zktls-sdk-releases.git'
+source 'https://cdn.cocoapods.org/'
+
 platform :ios, min_ios_version_supported
 prepare_react_native_project!
 
@@ -17,10 +22,8 @@ end
 target 'ZktlsReactNativeExample' do
   config = use_native_modules!
 
-  # Local-binary-first: the native zkTLS SDK from a local build-ios.sh run
-  # (swift/ holds the Swift API + ZktlsSDKFFI.xcframework). Swap for the published
-  # pod once zktls-sdk releases one. Satisfies ZktlsReactNative's ZktlsSDK dependency.
-  pod 'ZktlsSDK', :path => '../../../zktls-sdk/swift'
+  # The native zkTLS SDK, which ZktlsReactNative depends on.
+  pod 'ZktlsSDK', '~> 2.0', '>= 2.0.1'
 
   use_react_native!(
     :path => config[:reactNativePath],

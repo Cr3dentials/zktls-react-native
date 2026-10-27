@@ -19,11 +19,3 @@ buildscript {
 }
 
 apply plugin: "com.facebook.react.rootproject"
-
-allprojects {
-    repositories {
-        // Local-first: resolve the zkTLS SDK from the local Maven cache until it
-        // is published to Maven Central.
-        mavenLocal()
-    }
-}
