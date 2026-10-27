@@ -94,7 +94,7 @@
 }
 
 - (void)configure:(NSString *)appKey
-            theme:(JS::NativeZktlsReactNative::Theme &)theme
+            theme:(JS::NativeZktlsReactNative::ZktlsTheme &)theme
           strings:(NSDictionary *)strings
           resolve:(RCTPromiseResolveBlock)resolve
            reject:(RCTPromiseRejectBlock)reject
@@ -145,7 +145,8 @@
 }
 
 // The Swift side puts the JS error code in userInfo["code"] and the
-// Transport/Policy/Refused text in userInfo["text"]; userInfo reaches JS.
+// Transport/Policy/Refused/InvalidArgument text in userInfo["text"]; userInfo
+// reaches JS.
 - (void)reject:(RCTPromiseRejectBlock)reject with:(NSError *)error
 {
   NSString *code = error.userInfo[@"code"] ?: @"Internal";

@@ -9,9 +9,9 @@ import ai.zktls.sdk.SessionConfig
 import ai.zktls.sdk.VerifyOutcome
 import ai.zktls.sdk.ZktlsTheme
 import android.content.Context
-import android.graphics.Color
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.bridge.ReadableType
 import com.facebook.react.bridge.WritableMap
 
 // Converts between React Native's maps and the native SDK's types. The SDK
@@ -46,25 +46,51 @@ fun readDisclosure(map: ReadableMap, domains: List<String>): LoginDisclosure {
   )
 }
 
+// configure given a value it cannot use; rejected as InvalidArgument, with a
+// message naming the field. iOS rejects the same values with the same message.
+class InvalidArgumentException(message: String) : IllegalArgumentException(message)
+
+// Exactly "#RRGGBB" or "#AARRGGBB", hex digits in either case.
+private val hexColor = Regex("#(?:[0-9A-Fa-f]{6}|[0-9A-Fa-f]{8})")
+
+// The ARGB color int of a "#RRGGBB" (opaque) or "#AARRGGBB" color, or null for
+// anything else, color names included.
+fun parseHexColor(value: String): Int? {
+  if (!hexColor.matches(value)) return null
+  val digits = value.substring(1)
+  val argb = digits.toLong(16)
+  return (if (digits.length == 6) argb or 0xFF000000L else argb).toInt()
+}
+
 // The screens' theme. A color is "#RRGGBB" or "#AARRGGBB"; the logo is a
-// drawable's name in the app. A field left out keeps the SDK's default.
+// drawable's name in the app. A field left out keeps the SDK's default, so an
+// empty map is the SDK's own look. A color in any other form throws.
 fun readTheme(context: Context, map: ReadableMap?): ZktlsTheme {
   if (map == null) return ZktlsTheme()
-  fun color(key: String): Int? = map.getString(key)?.let { Color.parseColor(it) }
+  fun color(field: String): Int? {
+    if (!map.hasKey(field) || map.isNull(field)) return null
+    val value = if (map.getType(field) == ReadableType.String) map.getString(field) else null
+    return value?.let { parseHexColor(it) }
+      ?: throw InvalidArgumentException("theme.$field must be #RRGGBB or #AARRGGBB")
+  }
   val logo = map.getString("logo")?.let {
     context.resources.getIdentifier(it, "drawable", context.packageName).takeIf { id -> id != 0 }
   }
   return ZktlsTheme(accent = color("accent"), background = color("background"), text = color("text"), logo = logo)
 }
 
-// The screens' words, by key. Only string values are kept.
+// The screens' words, by key. A null value is left out, as iOS receives none;
+// any other value that is not a string throws, as on iOS.
 fun readStrings(map: ReadableMap?): Map<String, String> {
   if (map == null) return emptyMap()
   val out = mutableMapOf<String, String>()
   val keys = map.keySetIterator()
   while (keys.hasNextKey()) {
     val key = keys.nextKey()
-    map.getString(key)?.let { out[key] = it }
+    val type = map.getType(key)
+    if (type == ReadableType.Null) continue
+    val value = if (type == ReadableType.String) map.getString(key) else null
+    out[key] = value ?: throw InvalidArgumentException("strings[\"$key\"] must be a string")
   }
   return out
 }

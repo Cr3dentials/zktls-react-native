@@ -76,7 +76,7 @@ resolves. On iOS, over the key window's top-most view controller.
 
 ## The look of the SDK's screens
 
-`configure` takes a theme and the screens' words:
+`configure` takes a `ZktlsTheme` and the screens' words:
 
 ```ts
 await Zktls.configure(
@@ -86,10 +86,16 @@ await Zktls.configure(
 );
 ```
 
-Colors are `#RRGGBB` or `#AARRGGBB`. `logo` names an image in your app: an Android drawable, an iOS
-asset. A field you leave out keeps the SDK's default. The string keys are the SDK's own, such as `intro.title` or
-`disclosure.body`, the same on both platforms; keep the words in braces, such as `{platform}`, which the SDK
-fills in ([iOS](https://docs.cr3dentials.xyz/sdk/ios), [Android](https://docs.cr3dentials.xyz/sdk/android)).
+Colors are exactly `#RRGGBB` or `#AARRGGBB` (alpha first), with hex digits in either case; color names and
+other forms are refused. `logo` names an image in your app: an Android drawable, an iOS asset. A field you leave
+out keeps the SDK's default. The string keys are the SDK's own, such as `intro.title` or `disclosure.body`, the
+same on both platforms; keep the words in braces, such as `{platform}`, which the SDK fills in
+([iOS](https://docs.cr3dentials.xyz/sdk/ios), [Android](https://docs.cr3dentials.xyz/sdk/android)). Each value
+in `strings` must be a string; a `null` one is left out.
+
+A color in another form, or a value in `strings` that is not a string, rejects `configure` with the code
+`InvalidArgument` and a message naming it, such as `theme.accent must be #RRGGBB or #AARRGGBB`, on both
+platforms. The SDK's configuration is then left as it was.
 
 ## Prove a fact
 
@@ -135,7 +141,9 @@ above 2^53.
 - **Errors.** A failed call rejects with an `Error` whose `code` is an `SdkErrorCode`
   ([errors](https://docs.cr3dentials.xyz/sdk/errors)). For `Refused`, `refusal` holds the reason, such as
   `device_not_verified` or `app_key_invalid`. For `Transport`, `Policy` and `Refused`, `message` carries
-  the SDK's text. `Internal` is a fault inside the SDK that was not one of its errors: report it.
+  the SDK's text. `InvalidArgument` is the bridge's own: `configure` was given a theme color or a screen
+  string it cannot use, which `message` names. `Internal` is a fault inside the SDK that was not one of its
+  errors: report it.
 - **Logging.** Never log your app key in production builds, or a `SessionConfig`: it holds the app
   credential.
 

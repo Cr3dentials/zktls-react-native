@@ -5,7 +5,7 @@ import type {
   Claim,
   TypedOutput,
   ProofReport,
-  Theme,
+  ZktlsTheme,
   PlatformOutcome as NativePlatformOutcome,
   VerifyOutcome as NativeVerifyOutcome,
 } from './NativeZktlsReactNative';
@@ -16,7 +16,7 @@ export type {
   Claim,
   TypedOutput,
   ProofReport,
-  Theme,
+  ZktlsTheme,
 };
 
 // The native PlatformStatus, lowercased.
@@ -53,8 +53,10 @@ export interface ProgressEvent {
   percent: number;
 }
 
-// The native SdkError/SdkException variants. A rejected verb carries one of
-// these as `code`; for Transport and Policy, `message` carries the SDK's text.
+// The native SdkError/SdkException variants, and two of the bridge's own. A
+// rejected call carries one of these as `code`; for Transport, Policy and
+// Refused, `message` carries the SDK's text. InvalidArgument is configure given
+// a theme color or a screen string it cannot use; its message names the field.
 // Internal is a fault inside the SDK that was not an SdkError.
 export type SdkErrorCode =
   | 'NotLoggedIn'
@@ -69,6 +71,7 @@ export type SdkErrorCode =
   | 'Transport'
   | 'Policy'
   | 'Refused'
+  | 'InvalidArgument'
   | 'Internal';
 
 export interface ZktlsError extends Error {
@@ -91,7 +94,7 @@ function withRefusal(e: unknown): never {
 export const Zktls = {
   configure(
     appKey: string,
-    theme?: Theme,
+    theme?: ZktlsTheme,
     strings?: Record<string, string>
   ): Promise<void> {
     // Always an object: iOS reads an absent theme through a null reference.

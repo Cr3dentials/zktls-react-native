@@ -61,10 +61,12 @@ export interface ProofReport {
   receivedBytes: string; // u64
 }
 
-// The look of the SDK's own screens, for configure. Every field optional: one
-// left out keeps the SDK's default. Colors are "#RRGGBB" or "#AARRGGBB"; logo
-// names an image in the app, an Android drawable or an iOS asset.
-export interface Theme {
+// The look of the SDK's own screens, for configure; the native SDK's name. Every
+// field optional: one left out keeps the SDK's default. Colors are "#RRGGBB" or
+// "#AARRGGBB" (hex digits in either case); anything else rejects configure with
+// InvalidArgument. logo names an image in the app, an Android drawable or an iOS
+// asset.
+export interface ZktlsTheme {
   accent?: string;
   background?: string;
   text?: string;
@@ -100,7 +102,7 @@ export interface Spec extends TurboModule {
   // reaches the module as a null reference.
   configure(
     appKey: string,
-    theme?: Theme,
+    theme?: ZktlsTheme,
     strings?: CodegenTypes.UnsafeObject
   ): Promise<void>;
 

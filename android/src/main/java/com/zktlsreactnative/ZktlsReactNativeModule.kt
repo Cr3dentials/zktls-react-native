@@ -207,8 +207,8 @@ class ZktlsReactNativeModule(private val reactContext: ReactApplicationContext) 
   }
 
   // Maps every SdkException variant to the code JS matches on (see SdkErrorCode
-  // in index.tsx). Transport and Policy carry their text; anything else is a
-  // fault to report as Internal.
+  // in index.tsx). Transport, Policy and Refused carry their text, as does the
+  // bridge's own InvalidArgument; anything else is a fault to report as Internal.
   private fun rejectSdk(promise: Promise, e: Throwable) {
     when (e) {
       is SdkException.NotLoggedIn -> promise.reject("NotLoggedIn", "NotLoggedIn", e)
@@ -230,6 +230,7 @@ class ZktlsReactNativeModule(private val reactContext: ReactApplicationContext) 
         e,
         Arguments.createMap().apply { putString("refusal", e.code) },
       )
+      is InvalidArgumentException -> promise.reject("InvalidArgument", e.message, e)
       else -> promise.reject("Internal", e.message ?: "internal error", e)
     }
   }

@@ -44,6 +44,8 @@ import ZktlsSDK
   // The SDK's facade: configure once, then verify per user. verify shows the
   // SDK's own screens over the key window's top view controller and holds its
   // own background time, so it needs none of the proof sessions' lifecycle here.
+  // A theme color or a screen string it cannot use rejects with InvalidArgument
+  // and leaves the SDK's configuration as it was.
   @objc public func configure(
     _ appKey: String,
     theme: NSDictionary?,
@@ -51,12 +53,14 @@ import ZktlsSDK
     completion: @escaping (NSError?) -> Void
   ) {
     Task { @MainActor in
-      Zktls.configure(
-        appKey: appKey,
-        theme: ZktlsBridge.readTheme(theme),
-        strings: ZktlsBridge.readStrings(strings)
-      )
-      completion(nil)
+      do {
+        let sdkTheme = try ZktlsBridge.readTheme(theme)
+        let sdkStrings = try ZktlsBridge.readStrings(strings)
+        Zktls.configure(appKey: appKey, theme: sdkTheme, strings: sdkStrings)
+        completion(nil)
+      } catch {
+        completion(error as NSError)
+      }
     }
   }
 
@@ -258,23 +262,39 @@ import ZktlsSDK
   }
 
   // The screens' theme. A color is "#RRGGBB" or "#AARRGGBB"; the logo is an
-  // image asset's name in the app. A field left out keeps the SDK's default.
+  // image asset's name in the app. A field left out keeps the SDK's default, so
+  // an empty dictionary is the SDK's own look. A color in any other form throws.
   @MainActor
-  private static func readTheme(_ d: NSDictionary?) -> ZktlsTheme {
+  private static func readTheme(_ d: NSDictionary?) throws -> ZktlsTheme {
     var theme = ZktlsTheme()
     guard let d = d else { return theme }
-    if let c = color(d["accent"] as? String) { theme.accent = c }
-    if let c = color(d["background"] as? String) { theme.background = c }
-    if let c = color(d["text"] as? String) { theme.text = c }
+    if let c = try themeColor(d, "accent") { theme.accent = c }
+    if let c = try themeColor(d, "background") { theme.background = c }
+    if let c = try themeColor(d, "text") { theme.text = c }
     if let name = d["logo"] as? String { theme.logo = UIImage(named: name) }
     return theme
   }
 
-  private static func color(_ hex: String?) -> UIColor? {
-    guard var h = hex?.trimmingCharacters(in: .whitespaces) else { return nil }
-    if h.hasPrefix("#") { h.removeFirst() }
-    guard h.count == 6 || h.count == 8, let v = UInt64(h, radix: 16) else { return nil }
-    let argb = h.count == 6 ? (0xFF00_0000 | v) : v
+  // The theme's color `field`, nil when it is left out. Android rejects the same
+  // values with the same message.
+  private static func themeColor(_ d: NSDictionary, _ field: String) throws -> UIColor? {
+    guard let value = d[field], !(value is NSNull) else { return nil }
+    guard let hex = value as? String, let c = color(hex) else {
+      throw zktlsError("InvalidArgument", "theme.\(field) must be #RRGGBB or #AARRGGBB")
+    }
+    return c
+  }
+
+  // Exactly "#RRGGBB" (opaque) or "#AARRGGBB", hex digits in either case; nil
+  // for anything else, color names included.
+  private static func color(_ hex: String) -> UIColor? {
+    guard hex.hasPrefix("#") else { return nil }
+    let digits = hex.dropFirst()
+    guard digits.count == 6 || digits.count == 8,
+      digits.allSatisfy({ $0.isASCII && $0.isHexDigit }),
+      let v = UInt32(digits, radix: 16)
+    else { return nil }
+    let argb = digits.count == 6 ? (0xFF00_0000 | v) : v
     return UIColor(
       red: CGFloat((argb >> 16) & 0xFF) / 255,
       green: CGFloat((argb >> 8) & 0xFF) / 255,
@@ -283,11 +303,17 @@ import ZktlsSDK
     )
   }
 
-  // The screens' words, by key. Only string values are kept.
-  private static func readStrings(_ d: NSDictionary?) -> [String: String] {
+  // The screens' words, by key. A null value is left out; any other value that
+  // is not a string throws, as on Android.
+  private static func readStrings(_ d: NSDictionary?) throws -> [String: String] {
     var out: [String: String] = [:]
-    d?.forEach { key, value in
-      if let k = key as? String, let v = value as? String { out[k] = v }
+    guard let d = d else { return out }
+    for (key, value) in d {
+      guard let k = key as? String, !(value is NSNull) else { continue }
+      guard let v = value as? String else {
+        throw zktlsError("InvalidArgument", "strings[\"\(k)\"] must be a string")
+      }
+      out[k] = v
     }
     return out
   }
@@ -341,8 +367,7 @@ import ZktlsSDK
     return ["name": o.name, "valueJson": o.valueJson]
   }
 
-  // claim is always null: the attester posts a pack's claim to the backend
-  // itself. NSNull crosses as JS null.
+  // A platform's reason is nil unless it failed; NSNull crosses as JS null.
   private static func writeVerifyOutcome(_ o: VerifyOutcome) -> NSDictionary {
     return [
       "verificationId": o.verificationId,
@@ -365,7 +390,8 @@ import ZktlsSDK
   // MARK: - Errors
 
   // Maps every SdkError to the code JS matches on (see SdkErrorCode in
-  // index.tsx). Transport, Policy and Refused carry their text; anything else is Internal.
+  // index.tsx). Transport, Policy and Refused carry their text; anything else is
+  // Internal. The bridge's own InvalidArgument is made by zktlsError directly.
   private static func mapError(_ error: Error) -> NSError {
     guard let e = error as? SdkError else {
       return zktlsError("Internal", (error as NSError).localizedDescription)
@@ -391,7 +417,7 @@ import ZktlsSDK
   }
 
   // The .mm reads userInfo["code"] for the JS error code and userInfo["text"]
-  // for the Transport/Policy/Refused message; React Native hands userInfo to
+  // for the Transport/Policy/Refused/InvalidArgument message; React Native hands userInfo to
   // JS, where index.tsx reads a Refused error's userInfo["refusal"].
   private static func zktlsError(_ code: String, _ text: String?, refusal: String? = nil) -> NSError {
     var info: [String: Any] = ["code": code]
