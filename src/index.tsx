@@ -94,7 +94,8 @@ export const Zktls = {
     theme?: Theme,
     strings?: Record<string, string>
   ): Promise<void> {
-    return Native.configure(appKey, theme, strings);
+    // Always an object: iOS reads an absent theme through a null reference.
+    return Native.configure(appKey, theme ?? {}, strings);
   },
 
   verify(platforms: string[], reference: string): Promise<VerifyOutcome> {
@@ -128,7 +129,8 @@ export class ZktlsClient {
   }
 
   login(disclosure?: Disclosure): Promise<void> {
-    return Native.login(this.sessionId, disclosure);
+    // Always an object, as configure's theme: an empty one keeps the standard text.
+    return Native.login(this.sessionId, disclosure ?? {});
   }
 
   capture(): Promise<void> {

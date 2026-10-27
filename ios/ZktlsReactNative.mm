@@ -54,7 +54,8 @@
       resolve:(RCTPromiseResolveBlock)resolve
        reject:(RCTPromiseRejectBlock)reject
 {
-  // All four fields are optional; include only the ones JS actually sent.
+  // index.tsx always sends a disclosure object, so the struct is never a null
+  // reference. All four fields are optional; include only the ones JS sent.
   NSMutableDictionary *d = [NSMutableDictionary dictionary];
   if (disclosure.title()) d[@"title"] = disclosure.title();
   if (disclosure.message()) d[@"message"] = disclosure.message();
@@ -98,7 +99,8 @@
           resolve:(RCTPromiseResolveBlock)resolve
            reject:(RCTPromiseRejectBlock)reject
 {
-  // Every theme field is optional; include only the ones JS actually sent.
+  // index.tsx always sends a theme object, so the struct is never a null
+  // reference. Every field is optional; include only the ones JS actually sent.
   NSMutableDictionary *t = [NSMutableDictionary dictionary];
   if (theme.accent()) t[@"accent"] = theme.accent();
   if (theme.background()) t[@"background"] = theme.background();

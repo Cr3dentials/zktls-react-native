@@ -96,6 +96,8 @@ export interface ProgressEvent {
 export interface Spec extends TurboModule {
   // Sets the app's publishable key, zk_live_... or zk_test_..., and the look and
   // words of the SDK's screens. strings maps a screen string's key to its text.
+  // index.tsx always passes a theme object: on iOS an absent struct argument
+  // reaches the module as a null reference.
   configure(
     appKey: string,
     theme?: Theme,
@@ -115,7 +117,8 @@ export interface Spec extends TurboModule {
   create(config: SessionConfig): Promise<string>;
 
   // Shows the disclosure, then the profile's login page in the SDK's WebView,
-  // and keeps the resulting cookies natively.
+  // and keeps the resulting cookies natively. index.tsx always passes a
+  // disclosure object, for the reason configure's theme is always passed.
   login(sessionId: string, disclosure?: Disclosure): Promise<void>;
 
   capture(sessionId: string): Promise<void>;
