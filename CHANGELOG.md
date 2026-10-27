@@ -18,4 +18,6 @@ version 2 of the SDK.
   `cancel` and `dispose`. A proof session survives the user leaving the app and a Wi-Fi to cellular
   handover: the bridge runs the SDK's lifecycle, and on Android its foreground service.
 - A login disclosure field left out keeps the SDK's standard text.
+- `SessionConfig.trustBundleUrl`, optional: where the SDK refetches the trust bundle once when an enclave's
+  key is not listed yet.
 - Licensed Apache-2.0.
