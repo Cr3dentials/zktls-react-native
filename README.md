@@ -130,6 +130,8 @@ above 2^53.
 ## Things to know
 
 - **One verification at a time.** A `verify` called while another runs waits for it to finish.
+- **Reloads.** When the module goes away, as on a JavaScript reload, a `verify` in flight ends: the SDK takes
+  its screens down and the promise rejects with `Cancelled`.
 - **Background.** `verify` keeps itself alive when the user leaves your app. For a proof session, the bridge
   does what the SDK's guides ask of a native app: after `login` it follows Wi-Fi and cellular handovers and
   keeps the session alive, with a short foreground service on Android and background time on iOS.

@@ -11,6 +11,7 @@ version 2 of the SDK.
 - The `Refused` error code, with the reason in `refusal`.
 - The `InvalidArgument` error code: `configure` given a color in another form, or a screen string that is not
   a string, rejects with it on both platforms and changes nothing.
+- A `verify` in flight ends with `Cancelled` when the module goes away, as on a JavaScript reload.
 - The proof flow: `ZktlsClient.create`, then `login`, `capture`, `prove` and `claim`, with `onProgress`,
   `cancel` and `dispose`. A proof session survives the user leaving the app and a Wi-Fi to cellular
   handover: the bridge runs the SDK's lifecycle, and on Android its foreground service.

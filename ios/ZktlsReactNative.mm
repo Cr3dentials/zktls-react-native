@@ -1,6 +1,12 @@
 #import "ZktlsReactNative.h"
 #import "ZktlsReactNative-Swift.h"
 #import <React/RCTBridgeModule.h>
+#import <React/RCTInvalidating.h>
+
+// RCTInvalidating: the TurboModule manager calls invalidate when the module goes
+// away, which cancels a verify in flight.
+@interface ZktlsReactNative () <RCTInvalidating>
+@end
 
 @implementation ZktlsReactNative {
   ZktlsBridge *_bridge;
@@ -133,6 +139,11 @@
 - (void)cancel:(NSString *)sessionId
 {
   [_bridge cancel:sessionId];
+}
+
+- (void)invalidate
+{
+  [_bridge invalidate];
 }
 
 - (void)dispose:(NSString *)sessionId

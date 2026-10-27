@@ -13,11 +13,13 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
 import java.util.UUID
+import java.util.concurrent.CancellationException
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 // The native side owns one ZktlsClient per session, keyed by a sessionId this
@@ -38,6 +40,14 @@ class ZktlsReactNativeModule(private val reactContext: ReactApplicationContext) 
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
   override fun getName(): String = NAME
+
+  // The module is going away (a reload, or the app's React instance closing):
+  // cancel what runs in scope. A verify in flight ends and the SDK takes its
+  // screens down; its promise rejects with Cancelled.
+  override fun invalidate() {
+    scope.cancel()
+    super.invalidate()
+  }
 
   override fun create(config: ReadableMap, promise: Promise) {
     try {
@@ -208,7 +218,8 @@ class ZktlsReactNativeModule(private val reactContext: ReactApplicationContext) 
 
   // Maps every SdkException variant to the code JS matches on (see SdkErrorCode
   // in index.tsx). Transport, Policy and Refused carry their text, as does the
-  // bridge's own InvalidArgument; anything else is a fault to report as Internal.
+  // bridge's own InvalidArgument; a call cancelled by invalidate is Cancelled;
+  // anything else is a fault to report as Internal.
   private fun rejectSdk(promise: Promise, e: Throwable) {
     when (e) {
       is SdkException.NotLoggedIn -> promise.reject("NotLoggedIn", "NotLoggedIn", e)
@@ -231,6 +242,7 @@ class ZktlsReactNativeModule(private val reactContext: ReactApplicationContext) 
         Arguments.createMap().apply { putString("refusal", e.code) },
       )
       is InvalidArgumentException -> promise.reject("InvalidArgument", e.message, e)
+      is CancellationException -> promise.reject("Cancelled", "Cancelled", e)
       else -> promise.reject("Internal", e.message ?: "internal error", e)
     }
   }

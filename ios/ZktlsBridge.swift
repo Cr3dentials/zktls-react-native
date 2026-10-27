@@ -15,6 +15,8 @@ import ZktlsSDK
   // One lifecycle per session, on the client's own handle, as the SDK's sample
   // wires it: it holds background time and follows network changes.
   private var lifecycles: [String: ZkTlsLifecycle] = [:]
+  // The verifications in flight, so invalidate can cancel them.
+  private var verifications: [UUID: Task<Void, Never>] = [:]
   private let lock = NSLock()
 
   // Set by the .mm to receive progress. Args: sessionId, phase string, percent.
@@ -69,25 +71,47 @@ import ZktlsSDK
     reference: String,
     completion: @escaping (NSDictionary?, NSError?) -> Void
   ) {
-    Task { @MainActor in
-      do {
-        let outcome = try await Zktls.verify(platforms, reference: reference)
-        completion(ZktlsBridge.writeVerifyOutcome(outcome), nil)
-      } catch {
-        completion(nil, ZktlsBridge.mapError(error))
-      }
-    }
+    runVerification(completion) { try await Zktls.verify(platforms, reference: reference) }
   }
 
   @objc public func verifyToken(_ token: String, completion: @escaping (NSDictionary?, NSError?) -> Void) {
-    Task { @MainActor in
+    runVerification(completion) { try await Zktls.verify(token: token) }
+  }
+
+  // Cancels every verification in flight, when the module goes away: the SDK
+  // takes its screens down and each one's promise rejects with Cancelled.
+  @objc public func invalidate() {
+    lock.lock()
+    let running = Array(verifications.values)
+    verifications.removeAll()
+    lock.unlock()
+    running.forEach { $0.cancel() }
+  }
+
+  // Runs one verification on the main actor, kept until it ends so invalidate
+  // can cancel it.
+  private func runVerification(
+    _ completion: @escaping (NSDictionary?, NSError?) -> Void,
+    _ run: @escaping @MainActor () async throws -> VerifyOutcome
+  ) {
+    let id = UUID()
+    lock.lock()
+    defer { lock.unlock() }
+    verifications[id] = Task { @MainActor [weak self] in
       do {
-        let outcome = try await Zktls.verify(token: token)
+        let outcome = try await run()
         completion(ZktlsBridge.writeVerifyOutcome(outcome), nil)
       } catch {
         completion(nil, ZktlsBridge.mapError(error))
       }
+      self?.verificationEnded(id)
     }
+  }
+
+  private func verificationEnded(_ id: UUID) {
+    lock.lock()
+    verifications.removeValue(forKey: id)
+    lock.unlock()
   }
 
   @objc public func login(
