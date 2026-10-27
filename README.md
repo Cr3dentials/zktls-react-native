@@ -34,6 +34,25 @@ source 'https://github.com/Cr3dentials/zktls-sdk-releases.git'
 source 'https://cdn.cocoapods.org/'
 ```
 
+### Expo
+
+In an Expo app, the package's config plugin writes those two sources into the Podfile, so `expo prebuild` can
+regenerate it. Add the plugin to `app.json` (or `app.config.js`), then prebuild:
+
+```json
+{
+  "expo": {
+    "plugins": ["@cr3dentials-org/zktls-react-native"]
+  }
+}
+```
+
+```sh
+npx expo prebuild
+```
+
+The bridge is a native module, so it runs in a development build, not in Expo Go.
+
 ## What you need from us
 
 Your app's publishable key, `zk_live_…` or `zk_test_…`, and the platform ids you verify. A test key works on
