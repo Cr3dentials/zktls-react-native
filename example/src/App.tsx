@@ -86,7 +86,7 @@ export default function App() {
   const verify = async () => {
     setLog([]);
     if (!settings.appKey) {
-      append('No app key: fill example/src/settings.ts');
+      append('No app key: add example/verify.json');
       return;
     }
     setRunning(true);

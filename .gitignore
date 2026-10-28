@@ -89,3 +89,6 @@ android/generated
 # React Native Nitro Modules
 nitrogen/
 
+
+# The example's app key
+example/verify.json

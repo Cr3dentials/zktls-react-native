@@ -176,8 +176,11 @@ registration with us, the device checks, privacy answers, and a test account for
 ## The example app
 
 `example/` runs on both platforms. Its "Test bridge" button exercises the proof-flow round-trips that need no
-live backend. Its "Verify" button runs `verify` once `example/src/settings.ts` holds an app key; that file is
-committed empty, so never commit it with a real key.
+live backend. Its "Verify" button runs `verify` with the app key in `example/verify.json`, which git ignores:
+
+```json
+{"app_key": "zk_test_…"}
+```
 
 ## Versions
 
