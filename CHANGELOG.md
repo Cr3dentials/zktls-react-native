@@ -2,7 +2,7 @@
 
 ## 2.0.0
 
-The first public release, on the zkTLS SDK 2.0.1 or later within 2.x. Version 2 of the bridge wraps
+The first public release, on the zkTLS SDK 2.1.1 or later within 2.x. Version 2 of the bridge wraps
 version 2 of the SDK.
 
 - `Zktls.configure(appKey, theme?, strings?)` once, then `Zktls.verify(platforms, reference)` or

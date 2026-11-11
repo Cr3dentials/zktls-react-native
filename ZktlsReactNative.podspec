@@ -19,7 +19,7 @@ Pod::Spec.new do |s|
 
   # The native zkTLS SDK, from the releases repo's pod: the app's Podfile lists
   # https://github.com/Cr3dentials/zktls-sdk-releases.git as a source.
-  s.dependency "ZktlsSDK", "~> 2.0", ">= 2.0.1"
+  s.dependency "ZktlsSDK", "~> 2.1", ">= 2.1.1"
 
   install_modules_dependencies(s)
 end
