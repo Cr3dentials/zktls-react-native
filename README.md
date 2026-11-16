@@ -9,7 +9,7 @@ does the work, and JavaScript drives it through one API on both platforms.
 | | iOS | Android |
 |---|---|---|
 | Minimum OS | React Native's minimum, and at least iOS 14.0 for the SDK | Android 7.0 (API 24) |
-| The native SDK | The `ZktlsSDK` pod 2.1.1 or later, from [zktls-sdk-releases](https://github.com/Cr3dentials/zktls-sdk-releases) | `xyz.cr3dentials:zktls-sdk:2.1.1`, from Maven Central |
+| The native SDK | The `ZktlsSDK` pod 2.2.0 or later, from [zktls-sdk-releases](https://github.com/Cr3dentials/zktls-sdk-releases) | `xyz.cr3dentials:zktls-sdk:2.2.0`, from Maven Central |
 
 The SDK's guide holds the details this page links to: start with its
 [overview](https://docs.cr3dentials.xyz/sdk/overview).
@@ -101,14 +101,15 @@ resolves. On iOS, over the key window's top-most view controller.
 await Zktls.configure(
   'zk_live_…',
   { accent: '#1E66F5', background: '#FFFFFF', text: '#111111', logo: 'brand_logo' },
-  { 'intro.title': 'Verify your accounts' } // any screen string, by key
+  { 'list.title': 'Verify your income' } // any screen string, by key
 );
 ```
 
 Colors are exactly `#RRGGBB` or `#AARRGGBB` (alpha first), with hex digits in either case; color names and
 other forms are refused. `logo` names an image in your app: an Android drawable, an iOS asset. A field you leave
-out keeps the SDK's default. The string keys are the SDK's own, such as `intro.title` or `disclosure.body`, the
-same on both platforms; keep the words in braces, such as `{platform}`, which the SDK fills in
+out keeps the SDK's default. The platform list and the consent screens are in Cr3dentials' colors, with your
+theme's logo at the top; your colors apply to the refusal screen. The string keys are the SDK's own, such as
+`list.title` or `consent.agree`, the same on both platforms; keep the words in braces, such as `{terms}` and `{privacy}` in `consent.agree`, which the SDK fills in
 ([iOS](https://docs.cr3dentials.xyz/sdk/ios), [Android](https://docs.cr3dentials.xyz/sdk/android)). Each value
 in `strings` must be a string; a `null` one is left out.
 
@@ -185,7 +186,7 @@ live backend. Its "Verify" button runs `verify` with the app key in `example/ver
 ## Versions
 
 Releases follow [Semantic Versioning](https://semver.org/). Version 2 of the bridge wraps version 2 of the
-SDK: it depends on 2.1.1 or later, within 2.x.
+SDK: it depends on 2.2.0 or later, within 2.x.
 
 ## License
 
