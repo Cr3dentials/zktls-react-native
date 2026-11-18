@@ -6,7 +6,7 @@ import {
   type SessionConfig,
   type VerifyOutcome,
   type ZktlsError,
-} from '@cr3dentials-org/zktls-react-native';
+} from '@cr3dentials/zktls-react-native';
 import { settings } from './settings';
 
 // Placeholder configuration for "Test bridge". A real proof needs a SessionConfig

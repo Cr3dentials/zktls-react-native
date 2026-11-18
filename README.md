@@ -1,4 +1,4 @@
-# zktls-react-native
+# @cr3dentials/zktls-react-native
 
 Verify your users' accounts from a React Native app with the [Cr3dentials zkTLS SDK](https://docs.cr3dentials.xyz/sdk/overview):
 `Zktls.configure` once, at launch, and `Zktls.verify` per user. The SDK shows its own screens, opens each
@@ -22,7 +22,7 @@ or later. On iOS, the SDK needs iOS 14.0 or later.
 ## Install
 
 ```sh
-npm install @cr3dentials-org/zktls-react-native
+npm install @cr3dentials/zktls-react-native
 ```
 
 Android needs nothing more: Gradle fetches the SDK from Maven Central. On iOS the SDK's releases repository
@@ -42,7 +42,7 @@ regenerate it. Add the plugin to `app.json` (or `app.config.js`), then prebuild:
 ```json
 {
   "expo": {
-    "plugins": ["@cr3dentials-org/zktls-react-native"]
+    "plugins": ["@cr3dentials/zktls-react-native"]
   }
 }
 ```
@@ -62,7 +62,7 @@ simulators and emulators and runs only the demo platform, `zktls-demo` (any user
 ## Verify a user
 
 ```ts
-import { Zktls, type ZktlsError } from '@cr3dentials-org/zktls-react-native';
+import { Zktls, type ZktlsError } from '@cr3dentials/zktls-react-native';
 
 // Once, when your app starts.
 await Zktls.configure('zk_test_…');
