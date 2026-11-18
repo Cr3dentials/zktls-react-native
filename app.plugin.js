@@ -1,4 +1,4 @@
-// The Expo config plugin: add "@cr3dentials-org/zktls-react-native" to `plugins`
+// The Expo config plugin: add "@cr3dentials/zktls-react-native" to `plugins`
 // in app.json, then run `npx expo prebuild`. On iOS it lists the SDK's releases
 // repository, then the CocoaPods CDN, as the Podfile's sources: the ZktlsSDK pod
 // comes from the first, and CocoaPods takes a pod from the first source that has
