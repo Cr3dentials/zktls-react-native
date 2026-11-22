@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.1.0
+
+On the zkTLS SDK 2.3.0 or later within 2.x, which reads checks that hash an account ID. Update before any
+check you run uses one: an older SDK refuses a policy bundle that holds such a check, and with it every check.
+
 ## 2.0.0
 
 The first public release, on the zkTLS SDK 2.2.0 or later within 2.x. Version 2 of the bridge wraps

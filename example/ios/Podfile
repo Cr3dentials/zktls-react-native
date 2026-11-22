@@ -23,7 +23,7 @@ target 'ZktlsReactNativeExample' do
   config = use_native_modules!
 
   # The native zkTLS SDK, which ZktlsReactNative depends on.
-  pod 'ZktlsSDK', '~> 2.2', '>= 2.2.0'
+  pod 'ZktlsSDK', '~> 2.3', '>= 2.3.0'
 
   use_react_native!(
     :path => config[:reactNativePath],

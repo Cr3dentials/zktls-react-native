@@ -9,7 +9,7 @@ does the work, and JavaScript drives it through one API on both platforms.
 | | iOS | Android |
 |---|---|---|
 | Minimum OS | React Native's minimum, and at least iOS 14.0 for the SDK | Android 7.0 (API 24) |
-| The native SDK | The `ZktlsSDK` pod 2.2.0 or later, from [zktls-sdk-releases](https://github.com/Cr3dentials/zktls-sdk-releases) | `xyz.cr3dentials:zktls-sdk:2.2.0`, from Maven Central |
+| The native SDK | The `ZktlsSDK` pod 2.3.0 or later, from [zktls-sdk-releases](https://github.com/Cr3dentials/zktls-sdk-releases) | `xyz.cr3dentials:zktls-sdk:2.3.0`, from Maven Central |
 
 The SDK's guide holds the details this page links to: start with its
 [overview](https://docs.cr3dentials.xyz/sdk/overview).
@@ -186,7 +186,7 @@ live backend. Its "Verify" button runs `verify` with the app key in `example/ver
 ## Versions
 
 Releases follow [Semantic Versioning](https://semver.org/). Version 2 of the bridge wraps version 2 of the
-SDK: it depends on 2.2.0 or later, within 2.x.
+SDK: it depends on 2.3.0 or later, within 2.x.
 
 ## License
 
